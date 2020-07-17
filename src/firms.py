@@ -11,8 +11,9 @@ The methods of this class encode the way firms update the varying quantities suc
 """
 
 import numpy as np
-from numba.experimental import jitclass
+from numba import jitclass
 from numba import njit, float64
+
 
 @njit
 def clip_max(a, limit):
@@ -43,13 +44,13 @@ spec = [
     ('alpha_p', float64),
     ('beta', float64),
     ('beta_p', float64),
-    ('w', float64)
+    ('w', float64),
+    ('w_p', float64)
 ]
 
 
-@jitclass(spec)
 class Firms:
-    def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, w):
+    def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, w, w_p):
 
         if (z < 0).any():
             raise Exception("Productivity factors must be positive")
@@ -66,6 +67,7 @@ class Firms:
         self.beta = beta
         self.beta_p = beta_p
         self.w = w
+        self.w_p = w_p
 
     def update_prices(self, prices, profits, balance, cashflow, tradeflow):
         """
@@ -88,16 +90,16 @@ class Firms:
         """
         return (1 - self.sigma) * clip_min(supply - sales, 0)
 
-    def update_wages(self, labour_balance, total_labour):
+    def update_wages(self, wages, labour_balance, total_labour, profits, cashflow):
         """
         Updates wages according to the observed tensions in the labour market
         :param labour_balance: labour supply - labour demand
         :param total_labour: labour supply + labour demand
         :return: Updated wage
         """
-        return 1 - self.w * labour_balance / total_labour
+        return wages * (1 - self.w * labour_balance / total_labour + self.w_p * profits / cashflow)
 
-    def compute_targets(self, prices, Q_demand_prev, supply, prods):
+    def compute_targets(self, prices, wages, Q_demand_prev, supply, prods):
         """
         Computes the production target based on profit and balance forecasts.
         :param prices: current rescaled prices
@@ -107,11 +109,11 @@ class Firms:
         :param prods: current production levels
         :return: Production targets for the next period
         """
-        est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, Q_demand_prev, supply)
+        est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, wages, Q_demand_prev, supply)
         return prods * (1 + self.beta * (est_profits / est_cashflow) -
                         self.beta_p * (est_balance[1:] / est_tradeflow[1:]))
 
-    def compute_forecasts(self, prices, Q_demand_prev, supply):
+    def compute_forecasts(self, prices, wages, Q_demand_prev, supply):
         """
         Computes the expected profits and balances assuming same demands as previous time
         :param prices: current wage-rescaled prices
@@ -122,12 +124,12 @@ class Firms:
         """
 
         exp_gain = prices * np.sum(Q_demand_prev[:, 1:], axis=0)
-        exp_losses = np.dot(Q_demand_prev[1:, :], np.concatenate((np.array([1]), prices)))
+        exp_losses = np.dot(Q_demand_prev[1:, 1:], prices) + wages * Q_demand_prev[1:, 0]
         exp_supply = supply
         exp_demand = np.sum(Q_demand_prev, axis=0)
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
-    def compute_demands_firms(self, targets, prices, prices_net, q, b, lamb_a, n):
+    def compute_demands_firms(self, targets, prices, wages, prices_net, q, b, lamb_a, n):
         """
         Computes
         :param targets: production targets for the next period
@@ -142,6 +144,7 @@ class Firms:
             demanded_products_labor = np.dot(np.diag(np.power(targets, 1. / b)),
                                              lamb_a)
         elif q == np.inf:
+            # TODO: Code with differentiated wages
             prices_net_aux = np.array(
                 [np.prod(np.power(np.concatenate((np.array([1]), prices)), lamb_a[i, :])) for i in range(n)])
             demanded_products_labor = np.multiply(lamb_a,
@@ -150,14 +153,21 @@ class Firms:
                                                            np.concatenate((np.array([1]), prices)),
                                                            ))
         else:
-            demanded_products_labor = np.multiply(lamb_a,
-                                                  np.outer(np.multiply(np.power(prices_net, q),
-                                                                       np.power(targets, 1. / b)),
-                                                           np.power(np.concatenate((np.array([1]), prices)),
-                                                                    - q / (1 + q))))
+            demanded_products_labor = np.zeros((n, n + 1))
+            demanded_products_labor[:, 1:] = np.multiply(lamb_a[:, 1:],
+                                            np.outer(np.multiply(np.power(prices_net, q),
+                                                                 np.power(targets, 1. / b)),
+                                                     np.power(prices,
+                                                              - q / (1 + q))))
+            demanded_products_labor[:, 0] = np.multiply(lamb_a[:, 0],
+                                         np.multiply(np.power(prices_net, q),
+                                                     np.power(targets, 1. / b)),
+                                         np.power(wages,
+                                                  - q / (1 + q)))
+
         return demanded_products_labor
 
-    def compute_profits_balance(self, prices, Q_real, supply, demand):
+    def compute_profits_balance(self, prices, wages, Q_real, supply, demand):
         """
         Compute the real profits and balances of firms
         :param prices: current wage-rescaled prices
@@ -167,6 +177,6 @@ class Firms:
         :return: Real wage-rescaled values of gains - losses, supply - demand, gains + losses, supply + demand
         """
         gain = prices * np.sum(Q_real[:, 1:], axis=0)
-        losses = np.dot(Q_real[1:, :], np.concatenate((np.array([1]), prices)))
+        losses = np.dot(Q_real[1:, 1:], prices) + Q_real[1:, 0] * wages
 
         return gain - losses, supply - demand, gain + losses, supply + demand

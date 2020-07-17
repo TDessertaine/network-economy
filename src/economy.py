@@ -118,7 +118,7 @@ class Economy:
         """
         self.house = Household(labour, theta, gamma, phi)
 
-    def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, w):
+    def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, w, w_p):
         """
         Initialize a firms object as instance of economy class. Cf firms class.
         :param z:
@@ -130,7 +130,7 @@ class Economy:
         :param w:
         :return:
         """
-        self.firms = Firms(z, sigma, alpha, alpha_p, beta, beta_p, w)
+        self.firms = Firms(z, sigma, alpha, alpha_p, beta, beta_p, w, w_p)
 
     def set_house(self, house):
         """
@@ -274,7 +274,7 @@ class Economy:
                                                         / np.power(Q, 1. / self.q)), axis=1),
                             - self.b * self.q)
 
-    def compute_p_net(self, prices):
+    def compute_p_net(self, prices, wages):
         """
         Compute the network prices
         :param prices: current rescaled prices
@@ -283,7 +283,7 @@ class Economy:
         if self.q == np.inf:
             return np.sum(self.lamb_a, axis=1)
         else:
-            return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))
+            return np.matmul(self.lamb, np.power(prices, self.zeta)) + self.lamb_a[:, 0] * np.power(wages, self.zeta)
 
     def compute_eq(self):
         """

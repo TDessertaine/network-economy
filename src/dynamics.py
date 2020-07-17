@@ -14,7 +14,7 @@ class Dynamics(object):
         self.t_max = t_max
         self.n = self.eco.n
         self.prices = np.zeros((t_max + 1, self.n))
-        self.wages = np.zeros(t_max + 1)
+        self.wages = np.zeros((t_max + 1, self.n))
         self.prices_net = np.zeros((t_max + 1, self.n))
         self.prods = np.zeros(self.n)
         self.targets = np.zeros(self.n)
@@ -34,12 +34,13 @@ class Dynamics(object):
         self.budget = np.zeros(t_max + 1)
         self.budget_res = 0
         self.labour = np.zeros(t_max + 1)
+        self.factor = 0
 
         self.store = store
 
     def clear_all(self):
         self.prices = np.zeros((self.t_max + 1, self.n))
-        self.wages = np.zeros(self.t_max + 1)
+        self.wages = np.zeros((self.t_max + 1, self.n))
         self.prices_net = np.zeros(self.n)
         self.prods = np.zeros(self.n)
         self.targets = np.zeros(self.n)
@@ -59,6 +60,7 @@ class Dynamics(object):
         self.budget = np.zeros(self.t_max + 1)
         self.budget_res = 0
         self.labour = np.zeros(self.t_max + 1)
+        self.factor = 0
 
     def time_t_minus(self, t):
         """
@@ -74,12 +76,14 @@ class Dynamics(object):
         self.supply = np.concatenate(([self.labour[t]], self.eco.firms.z * self.prods + self.stocks[t]))
 
         self.targets = self.eco.firms.compute_targets(self.prices[t],
+                                                      self.wages[t-1],
                                                       self.Q_demand[t - 1],
                                                       self.supply,
                                                       self.prods
                                                       )
         self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(self.targets,
                                                                     self.prices[t],
+                                                                    self.wages[t-1],
                                                                     self.prices_net,
                                                                     self.eco.q,
                                                                     self.eco.b,
@@ -103,7 +107,7 @@ class Dynamics(object):
 
         # Real work according to the labour supply constraint and associated budget
         self.Q_real[t, 1:, 0] = self.Q_demand[t, 1:, 0] * self.s_vs_d[0]
-        self.budget[t] = self.budget_res + np.sum(self.Q_real[t, 1:, 0])
+        self.budget[t] = self.budget_res + np.dot(self.wages[t-1], self.Q_real[t, 1:, 0])
 
         # Budget constraint
         offered_cons = self.Q_demand[t, 0, 1:] * self.s_vs_d[1:]
@@ -126,13 +130,19 @@ class Dynamics(object):
         # Prices and wage update
         self.profits, self.balance, self.cashflow, self.tradeflow = \
             self.eco.firms.compute_profits_balance(self.prices[t],
+                                                   self.wages[t-1],
                                                    self.Q_real[t],
                                                    self.supply,
                                                    self.demand
                                                    )
 
-        self.wages[t] = self.eco.firms.update_wages(self.balance[0], self.tradeflow[0])
-        # self.utility[t] = self.eco.house.utility(self.Q_real[t, 0, 1:], self.Q_real[t, 1:, 0])
+        self.wages[t] = self.eco.firms.update_wages(self.wages[t-1],
+                                                    self.balance[0],
+                                                    self.tradeflow[0],
+                                                    self.profits,
+                                                    self.cashflow)
+
+        self.factor = 1 - self.eco.firms.w * self.balance[0] / self.tradeflow[0]
 
     def time_t_plus(self, t):
         """
@@ -147,12 +157,12 @@ class Dynamics(object):
                                                           self.balance,
                                                           self.cashflow,
                                                           self.tradeflow
-                                                          ) / self.wages[t]
+                                                          ) / self.factor
 
-        self.budget[t] = self.budget[t] / self.wages[t]
-        self.budget_res = np.clip(self.budget_res, 0, None) / self.wages[
-            t]  # Clipping to avoid negative almost zero values
-        self.prices_net = self.eco.compute_p_net(self.prices[t + 1])
+        self.budget[t] = self.budget[t] / self.factor
+        self.wages[t] = self.wages[t] / self.factor
+        self.budget_res = np.clip(self.budget_res, 0, None) / self.factor  # Clipping to avoid negative almost zero values
+        self.prices_net = self.eco.compute_p_net(self.prices[t + 1], self.wages[t])
 
         self.prods = self.eco.production_function(self.Q_real[t, 1:, :])
         self.stocks[t + 1] = self.eco.firms.update_stocks(self.supply[1:],
@@ -164,18 +174,17 @@ class Dynamics(object):
                                                              self.prices[t + 1],
                                                              )
 
-    @jit
     def discrete_dynamics(self, p0, w0, g0, t1, s0, B0):
         self.clear_all()
         # Initial conditions at t=0
         # Household
         self.wages[0] = w0
-        self.budget_res = B0 / w0
+        self.budget_res = B0 / 1
 
         self.prods = g0
         self.stocks[1] = s0
         self.prices[1] = p0 / w0
-        self.prices_net = self.eco.compute_p_net(self.prices[1])
+        self.prices_net = self.eco.compute_p_net(self.prices[1], w0)
         self.mu[0], self.Q_demand[1, 0, 1:], self.labour[1] = \
             self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
                                                              self.prices[1]
@@ -188,6 +197,7 @@ class Dynamics(object):
         self.targets = t1
         self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(self.targets,
                                                                     self.prices[1],
+                                                                    self.wages[0],
                                                                     self.prices_net,
                                                                     self.eco.q,
                                                                     self.eco.b,
@@ -220,7 +230,7 @@ class Dynamics(object):
 
     @staticmethod
     @jit
-    def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
+    def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, wages, prods, stocks, labour, tmax, n):
         supply_goods = e.firms.z * prods + stocks
         demand = np.sum(Q_demand, axis=1)
         profits, balance, cashflow, tradeflow = np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1)), \
@@ -228,6 +238,7 @@ class Dynamics(object):
         for t in range(1, tmax):
             supply_t = np.concatenate(([labour[t]], supply_goods[t]))
             profits[t], balance[t], cashflow[t], tradeflow[t] = e.firms.compute_profits_balance(prices[t],
+                                                                                                wages[t-1],
                                                                                                 Q_real[t],
                                                                                                 supply_t,
                                                                                                 demand[t]

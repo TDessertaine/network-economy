@@ -51,6 +51,7 @@ class PlotlyDynamics:
         self.fig_network_eig = None
         self.fig_firms_observ = None
         self.fig_exchanges = None
+        self.fig_returns = None
 
         self.rc = {"text.usetex": True,
                    "font.family": 'serif',
@@ -279,6 +280,18 @@ class PlotlyDynamics:
 
         self.fig_network_raw = fig
 
+    def plotGDP(self):
+        pass
+
+    def plotReturnsHist(self):
+        # fig = make_subplots(rows=1, cols=1)
+        # # fig.update_xaxes(title_text=r'$t$', row=2, col=1)
+        # # fig.update_yaxes(title_text=r'$\frac{e_{i}(t)}{S_{i}(t)+D_{i}(t)}$', showticksuffix='last', row=1, col=1)
+        # # fig.update_yaxes(title_text=r'$\frac{\mathcal{P}_{i}(t)}{C^{+}_{i}(t)+C^{-}_{i}(t)}$', row=2, col=1)
+        # fig.add_trace(go.Histogram(x=np.log(np.shift(self.prods, 1)/self.prods), histnorm='probability'))
+        # self.fig_returns = fig
+        pass
+
     def plotFirmsObserv(self):
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02
                             )
@@ -321,41 +334,41 @@ class PlotlyDynamics:
         fig.update_yaxes(title_text=r'$s_{i}(t)$', row=3, col=1)
         for l in self.firms:
             if from_eq:
-                fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                         y=self.dyn.prices[1:, l] - self.dyn.eco.p_eq[l],
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
+                                         y=self.dyn.prices[1:-1, l] - self.dyn.eco.p_eq[l],
                                          mode='lines',
                                          marker=dict(
                                              color='rgba' + str(tuple(self.color_firms[l])))),
                               row=1, col=1)
-                fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                         y=self.prods[1:, l] - self.dyn.eco.g_eq[l],
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
+                                         y=self.prods[1:-1, l] - self.dyn.eco.g_eq[l],
                                          mode='lines',
                                          marker=dict(
                                              color='rgba' + str(tuple(self.color_firms[l])))),
                               row=2, col=1)
-                fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                         y=self.dyn.stocks[1:, l],
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
+                                         y=self.dyn.stocks[1:-1, l],
                                          mode='lines',
                                          marker=dict(
                                              color='rgba' + str(tuple(self.color_firms[l])))),
                               row=3, col=1)
             else:
-                fig.add_trace(go.Scattergl(x=np.arange(self.dyn.t_max),
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
                                            y=self.dyn.prices[1:, l],
                                            mode='lines',
                                            marker=dict(
                                                color='rgba' + str(tuple(self.color_firms[l])))
                                            ),
                               row=1, col=1)
-                fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                         y=self.prods[1:, l],
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
+                                         y=self.prods[1:-1, l],
                                          mode='lines',
                                          marker=dict(
                                              color='rgba' + str(tuple(self.color_firms[l])))
                                          ),
                               row=2, col=1)
-                fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                         y=self.dyn.stocks[1:, l],
+                fig.add_trace(go.Scatter(x=np.arange(1, self.dyn.t_max),
+                                         y=self.dyn.stocks[1:-1, l],
                                          mode='lines',
                                          marker=dict(
                                              color='rgba' + str(tuple(self.color_firms[l])))
@@ -491,7 +504,7 @@ class PlotlyDynamics:
                          r'$\mathcal{U}(t)$', r'$B(t)$', r'$p_0(t)$', r'$C_i(t)$', r'$\sum_j z_j p_j(t) \gamma_j(t)$'],
                         ['prices', 'prods', 'stocks', 'n_surplus', 'n_profits', 'utility',
                          'budget', 'wages', 'cons', 'pib']):
-                    f_tmp, ax = plt.subplots(figsize=(5, 3))
+                    f_tmp, ax = plt.subplots(figsize=(10, 6))
                     ax.ticklabel_format(axis='y', scilimits=(-1, 1))
                     if log and not (label in ['n_surplus', 'n_profits', 'utility']):
                         ax.set_yscale('log')
