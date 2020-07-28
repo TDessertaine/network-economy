@@ -18,13 +18,13 @@ import plotly.offline as plo
 #%% CREATION ECONOMIE
 
 # Dimensions 
-n=100
-d=7
+n=1
+d=1
 t_max=10
 
 # Variables statiques Firms
 z=np.ones(n)
-sigma=np.random.uniform(0,1,n)
+sigma=np.random.uniform(0,1,1)
 alpha=0.1
 alpha_p=0.01
 beta=0.05
@@ -41,12 +41,13 @@ gamma=1
 phi=1
 
 econ_args = {
-        'n':100,
-        'd':7,
+        'n':1,
+        'd':1,
         'netstring':'regular',
         'directed':True,
-        'j0':np.ones(100),
-        'a0':np.ones(100)*0.5,
+        'j0':np.ones(1),
+        'j1':np.ones(1),
+        'a0':np.ones(1)*0.5,
         'q':0,
         'b':1
         }
@@ -57,6 +58,8 @@ house_args = {
         'gamma':1
         }
 
+
+#%%
 # Création objet classe Economy
 economie=eco(**econ_args)
 
@@ -93,11 +96,11 @@ t1=np.random.uniform(1,2,n)
 B0=random.randint(1,10)
 
 dictionnaire={
-        'p0':np.random.uniform(1,2,n),
+        'p0':np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(1,2,n),
-        's0':np.random.uniform(0,0,n),
-        't1':np.random.uniform(1,2,n),
+        'g0':np.random.uniform(1,2,econ_args['n']),
+        's0':np.random.uniform(0,0,econ_args['n']),
+        't1':np.random.uniform(1,2,econ_args['n']),
         'B0':random.randint(1,10)
         }
 

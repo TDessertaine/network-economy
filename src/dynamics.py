@@ -2,7 +2,7 @@ import warnings
 from numba import jit
 
 
-warnings.simplefilter("ignore")
+#warnings.simplefilter("ignore")
 
 import numpy as np
 import pdb
@@ -171,6 +171,7 @@ class Dynamics(object):
         t1 = kwargs['t1']
         s0 = kwargs['s0']
         B0 = kwargs['B0']
+        #n = kwargs['n']
         print(kwargs)
         self.clear_all()
         # Initial conditions at t=0
@@ -190,23 +191,18 @@ class Dynamics(object):
         self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + s0])
 
         # Firms
-
+        fix={}
         self.targets = t1
-        targets = np.copy(self.targets)
-        pp = np.copy(self.prices[1])
-        pp_net = np.copy(self.prices_net)
-        q = self.eco.q
-        b = self.eco.b
-        lda = np.copy(self.eco.lamb_a)
-        n = self.n
-        self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(targets,
-                                                                    pp,
-                                                                    pp_net,
-                                                                    q,
-                                                                    b,
-                                                                    lda,
-                                                                    n
-                                                                    )
+        fix['targets'] = np.copy(self.targets)
+        fix['prices'] = np.copy(self.prices[1])
+        fix['prices_net'] = np.copy(self.prices_net)
+        fix['q'] = self.eco.q
+        fix['b'] = self.eco.b
+        fix['lda'] = np.copy(self.eco.lamb_a)
+        fix['n'] = self.n
+        print(fix)
+        #self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(**fix)
+                                                                    
 
         self.time_t(1)
         self.time_t_plus(1)
@@ -223,7 +219,7 @@ class Dynamics(object):
         self.budget_res = B0 / w0
 
     @staticmethod
-    @jit
+    #@jit
     def compute_prods(e, Q_real, tmax, n, g0):
         prods = np.zeros((tmax + 1, n))
         prods[1] = g0
@@ -232,7 +228,7 @@ class Dynamics(object):
         return prods
 
     @staticmethod
-    @jit
+    #@jit
     def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
         supply_goods = e.firms.z * prods + stocks
         demand = np.sum(Q_demand, axis=1)
@@ -248,7 +244,7 @@ class Dynamics(object):
         return profits, balance, cashflow, tradeflow
 
     @staticmethod
-    @jit
+    #@jit
     def compute_utility(e, Q_real, tmax):
         utility = np.zeros(tmax + 1)
         for t in range(1, tmax):
@@ -256,6 +252,6 @@ class Dynamics(object):
         return utility
 
     @staticmethod
-    @jit
+    #@jit
     def compute_targets(e, Q_demand, prices, tmax, n):
         targets = np.zeros((tmax + 1, n))

@@ -77,7 +77,7 @@ class Firms(object):
                 1 + self.beta * (est_profits / est_cashflow) - self.beta_p * (est_balance[1:] / est_tradeflow[1:]))
 
     @staticmethod
-    @numba.jit
+    #@numba.jit
     def compute_forecasts(prices, Q_demand_prev, supply):
         """
         Computes the expected profits and balances assuming same demands as previous time
@@ -94,8 +94,8 @@ class Firms(object):
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
     @staticmethod
-    @numba.jit
-    def compute_demands_firms(targets, prices, prices_net, q, b, lamb_a, n):
+    #@numba.jit
+    def compute_demands_firms(**fix):
         """
         Computes
         :param targets: production targets for the next period
@@ -106,6 +106,13 @@ class Firms(object):
         :param lamb_a: Aggregated network-subsitution matrix
         :return: (n, n+1) matrix of labour/goods demands
         """
+        targets=fix['targets']
+        prices_net=fix['prices_net']
+        prices=fix['prices']
+        q=fix['q']
+        b=fix['b']
+        lamb_a=fix['lamb_a']
+        n=fix['n']
         if q == 0:
             demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / b)),
                                                 lamb_a)
@@ -126,7 +133,7 @@ class Firms(object):
         return demanded_products_labor
 
     @staticmethod
-    @numba.jit
+   # @numba.jit
     def compute_profits_balance(prices, Q, supply, demand):
         """
         Compute the real profits and balances of firms

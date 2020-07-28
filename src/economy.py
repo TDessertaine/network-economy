@@ -75,15 +75,15 @@ class Economy:
         """
         return np.array([np.where(j[i] != 0)[0] for i in range(len(j))])
 
-    def __init__(self, n, d, netstring, directed, j0, a0, q, b):
+    def __init__(self, n, d, netstring, directed, j0, j1, a0, q, b):
 
         # Network initialization
-        self.n = n
-        self.j = create_net(netstring, directed, n, d)
+        self.n = 1
+        self.j1 = j1
         self.j0 = j0
         self.j_a = None
         self.a0 = a0
-        a = np.random.uniform(0, 1, (n, n))
+        a = np.array(1-a0)
         self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i]) for i in range(n)])
         self.a_a = None
         self.q = q
@@ -185,16 +185,16 @@ class Economy:
         if self.q != 0:
             np.save(name + 'sub_network.npy', self.a_a)
 
-    def set_j(self, j):
+    def set_j(self, j_a):
         """
         Sets a particular input-output network.
         :param j: a n by n matrix.
         :return: side effect
         """
-        if j.shape != (self.n, self.n):
+        if j_a.shape != (self.n, self.n):
             raise ValueError('Input-output network must be of size (%d, %d)' % (self.n, self.n))
 
-        self.j = j
+        self.j_a = j_a
 
     def set_a(self, a):
         """
@@ -212,23 +212,23 @@ class Economy:
         :return: side effect
         """
         if self.q == 0:
-            self.lamb = self.j
-            self.a_a, self.j_a = np.hstack((np.array([self.a0]).T, self.a)), np.hstack((np.array([self.j0]).T, self.j))
+            self.lamb = self.j1
+            self.a_a, self.j_a = np.hstack((self.a0, self.a)), np.hstack((self.j0, self.j1))
             self.lamb_a = self.j_a
             self.m_cal = np.diag(self.firms.z) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
+            self.v = np.array(self.lamb_a[0])
         elif self.q == np.inf:
             self.lamb = self.a
-            self.a_a, self.j_a = np.hstack((np.array([self.a0]).T, self.a)), np.hstack((np.array([self.j0]).T, self.j))
+            self.a_a, self.j_a = np.hstack((self.a0, self.a)), np.hstack((self.j0, self.j1))
             self.lamb_a = self.a_a
             self.m_cal = np.eye(self.n) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
+            self.v = np.array(self.lamb_a[0])
         else:
-            self.lamb = np.multiply(np.power(self.a, self.q * self.zeta), np.power(self.j, self.zeta))
-            self.a_a, self.j_a = np.hstack((np.array([self.a0]).T, self.a)), np.hstack((np.array([self.j0]).T, self.j))
+            self.lamb = np.multiply(np.power(self.a, self.q * self.zeta), np.power(self.j1, self.zeta))
+            self.a_a, self.j_a = np.hstack((self.a0, self.a)), np.hstack((self.j0, self.j1))
             self.lamb_a = np.multiply(np.power(self.a_a, self.q * self.zeta), np.power(self.j_a, self.zeta))
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
+            self.v = np.array(self.lamb_a[0])
 
     def get_eps_cal(self):
         """
