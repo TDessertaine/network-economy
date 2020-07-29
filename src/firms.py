@@ -114,8 +114,7 @@ class Firms(object):
         lamb_a=fix['lamb_a']
         n=fix['n']
         if q == 0:
-            demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / b)),
-                                                lamb_a)
+            demanded_products_labor = np.diag(np.power(targets, 1. / b))*lamb_a
         elif q == np.inf:
             prices_net_aux = np.array(
                 [np.prod(np.power(np.concatenate(([1], prices)), lamb_a[i, :])) for i in range(n)])

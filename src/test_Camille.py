@@ -1,3 +1,6 @@
+import os,sys
+sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
+
 import numpy as np
 import random
 
@@ -74,13 +77,6 @@ economie.set_quantities()
 
 # Création de l'objet dynamique
 sim = dyn(t_max=10,e=economie)
-#%% PROBLEMES 
-
-pbm_lamb_a=np.hstack((np.array([economie.j0]).T, economie.j))
-
-## Error raised :
-# ValueError: all the input arrays must have same number of dimensions
-
 
 #%% SIMULATION
 

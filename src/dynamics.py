@@ -78,13 +78,13 @@ class Dynamics(object):
                                                       self.supply,
                                                       self.prods
                                                       )
-        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(self.targets,
-                                                                    self.prices[t],
-                                                                    self.prices_net,
-                                                                    self.eco.q,
-                                                                    self.eco.b,
-                                                                    self.eco.lamb_a,
-                                                                    self.n
+        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(**{'targets':self.targets,
+                                                                    'prices':self.prices[t],
+                                                                    'prices_net':self.prices_net,
+                                                                    'q':self.eco.q,
+                                                                    'b':self.eco.b,
+                                                                    'lamb_a':self.eco.lamb_a,
+                                                                    'n':self.n}
                                                                     )
 
     def time_t(self, t):
@@ -198,10 +198,10 @@ class Dynamics(object):
         fix['prices_net'] = np.copy(self.prices_net)
         fix['q'] = self.eco.q
         fix['b'] = self.eco.b
-        fix['lda'] = np.copy(self.eco.lamb_a)
+        fix['lamb_a'] = np.copy(self.eco.lamb_a)
         fix['n'] = self.n
         print(fix)
-        #self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(**fix)
+        self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(**fix)
                                                                     
 
         self.time_t(1)
