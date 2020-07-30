@@ -270,8 +270,7 @@ class Economy:
                                     axis=1),
                             self.b)
         else:
-            return np.power(np.sum(np.ma.masked_invalid(self.a_a * np.power(self.j_a, 1. / self.q)
-                                                        / np.power(Q, 1. / self.q)), axis=1),
+            return np.power(np.sum(np.ma.masked_invalid(self.a_a * np.power(self.j_a, -1. / self.q) * np.power(Q, 1. / self.q)), axis=1),
                             - self.b * self.q)
 
     def compute_p_net(self, prices):

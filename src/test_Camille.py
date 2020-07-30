@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # %%
 import os,sys
-sys.path.append('/mnt/research-live/user/cboissel/network-economy/src')
+sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
 
 import numpy as np
 import random
@@ -50,7 +50,7 @@ econ_args = {
         'j0':np.ones(1),
         'j1':np.ones(1),
         'a0':np.ones(1)*0.5,
-        'q':0,
+        'q':1,
         'b':0.1
         }
 
@@ -75,7 +75,7 @@ economie.set_quantities()
 
 
 # Création de l'objet dynamique
-sim = dyn(t_max=100,e=economie)
+sim = dyn(t_max=200,e=economie)
 
 # %% SIMULATION
 
@@ -84,7 +84,7 @@ def InitialisationVecteur(nby,min,max):
 
 #Conditions initiales
 dictionnaire={
-        'p0':np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([1.2059357]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
         'g0':np.random.uniform(1,2,econ_args['n']),
         's0':np.random.uniform(1,1,econ_args['n']),
@@ -99,6 +99,12 @@ sim.discrete_dynamics(**dictionnaire)
 # %%
 sim.Q_real[7][1:,:]
 
+# %%
+
+economie.compute_eq()
+#economie.v
+#economie.m_cal
+
 # %% PLOT
 import matplotlib.pyplot as plt
 # %matplotlib inline 
@@ -112,12 +118,31 @@ plt.plot(sim.prices)
 
 #plt.xscale("linear")
 plt.yscale("log")
-plt.ylim(1,float(max(sim.prices)))
+plt.ylim(1,float(max(sim.prices))+10000)
 #plt.grid(True)
 plt.show()
 
 #MKDIR NOT DONE: plt.savefig("/mnt/research-live/user/cboissel/network-economy/OneFirmCase_Images_v1/prices.png")
 
-# %% DEBUG
-import pdb
+# %%
+sim.Q_real[:,1,0]
 
+# %%
+### Production
+plt.title("Labour supply")
+plt.xlabel('Time')
+plt.ylabel('P1')
+
+plt.plot(sim.Q_real[:,1,0])
+
+#plt.xscale("linear")
+plt.yscale("linear")
+plt.ylim(0,float(max(sim.labour))+1)
+#plt.grid(True)
+plt.show()
+
+# %% DEBUG
+sim.labour
+
+
+# %%
