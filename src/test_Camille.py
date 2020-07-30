@@ -23,7 +23,7 @@ import plotly.offline as plo
 # Dimensions 
 n=1
 d=1
-t_max=10
+
 
 # Variables statiques Firms
 z=np.ones(n)
@@ -38,7 +38,7 @@ w=1
 q=0
 b=1
 # Variables statiques Household
-labour=10
+labour=100
 theta=np.ones(n)/n
 gamma=1
 phi=1
@@ -56,7 +56,7 @@ econ_args = {
         }
 
 house_args = {
-        'labour':10,
+        'labour':100,
         'theta':np.ones(econ_args['n']) / econ_args['n'],
         'gamma':1
         }
@@ -76,7 +76,7 @@ economie.set_quantities()
 
 
 # Création de l'objet dynamique
-sim = dyn(t_max=10,e=economie)
+sim = dyn(t_max=500,e=economie)
 
 #%% SIMULATION
 
@@ -84,31 +84,38 @@ def InitialisationVecteur(nby,min,max):
     return np.array([random.randint(min, max) for i in range(nby)])
 
 #Conditions initiales
-p0=np.random.uniform(1,2,n)
-w0=1
-g0=np.random.uniform(1,2,n)
-s0=np.random.uniform(0,0,n)
-t1=np.random.uniform(1,2,n)
-B0=random.randint(1,10)
-
 dictionnaire={
         'p0':np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(1,2,econ_args['n']),
+        'g0':np.random.uniform(200,200,econ_args['n']),
         's0':np.random.uniform(0,0,econ_args['n']),
-        't1':np.random.uniform(1,2,econ_args['n']),
-        'B0':random.randint(1,10)
+        't1':np.random.uniform(1,1,econ_args['n']),
+        'B0':random.randint(2,3)
         }
 
 # Dynamique
 sim.discrete_dynamics(**dictionnaire)
+#sim.prices
+#sim.labour
+#%% PLOT 
+matplotlib.use('WebAgg')
+import matplotlib.pyplot as plt
 
+### Prices
+plt.title("Prices of the firm's production")
+plt.xlabel('Time')
+plt.ylabel('P1')
 
-#%% PLOT FROM CLASSES DIRECTLY
+prices=plt.plot(sim.prices)
 
-dic_plots={"dyn":sim,
-           "k":int(n/5)+1}
+#plt.xscale("linear")
+plt.yscale("log")
+plt.ylim(1,307)
+#plt.grid(True)
+plt.show()
 
-graphes_dyn=plotdyn(sim,k=3)
- 
+plt.savefig("/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/prices.png")
+
+#%% DEBUG
+import pdb
 
