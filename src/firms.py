@@ -1,5 +1,6 @@
 import numba
 import numpy as np
+from math import exp
 
 from exception import *
 
@@ -43,7 +44,7 @@ class Firms(object):
         :param tradeflow: current supply + demand
         :return:
         """
-        return prices * (1 - self.alpha_p * (profits / cashflow) - self.alpha * (balance[1:] / tradeflow[1:]))
+        return prices * exp( - self.alpha_p * (profits / cashflow) - self.alpha * (balance[1:] / tradeflow[1:]))
 
     def update_stocks(self, supply, sales):
         """
@@ -143,6 +144,6 @@ class Firms(object):
         :return: Real wage-rescaled values of gains - losses, supply - demand, gains + losses, supply + demand
         """
         gain = np.multiply(prices, np.sum(Q[:, 1:], axis=0))
-        losses = np.matmul(Q[1:, :], np.concatenate(([1], prices)))
+        losses = np.multiply(Q[1:, :], np.concatenate(([1], prices)))
 
         return gain - losses, supply - demand, gain + losses, supply + demand

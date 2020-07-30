@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
+# %%
 import os,sys
-sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
+sys.path.append('/mnt/research-live/user/cboissel/network-economy/src')
 
 import numpy as np
 import random
@@ -11,14 +13,11 @@ import firms
 import household
 
 
-from graphics_class import PlotlyDynamics as plotdyn
-import graphics_df as gd
 
-import plotly.graph_objs as go
-import tqdm as tqdm
-import plotly.offline as plo
+#import tqdm as tqdm
 
-#%% CREATION ECONOMIE
+
+# %% CREATION ECONOMIE
 
 # Dimensions 
 n=1
@@ -52,17 +51,17 @@ econ_args = {
         'j1':np.ones(1),
         'a0':np.ones(1)*0.5,
         'q':0,
-        'b':1
+        'b':0.1
         }
 
 house_args = {
-        'labour':100,
+        'labour':4,
         'theta':np.ones(econ_args['n']) / econ_args['n'],
         'gamma':1
         }
 
 
-#%%
+# %%
 # Création objet classe Economy
 economie=eco(**econ_args)
 
@@ -76,9 +75,9 @@ economie.set_quantities()
 
 
 # Création de l'objet dynamique
-sim = dyn(t_max=500,e=economie)
+sim = dyn(t_max=100,e=economie)
 
-#%% SIMULATION
+# %% SIMULATION
 
 def InitialisationVecteur(nby,min,max):
     return np.array([random.randint(min, max) for i in range(nby)])
@@ -87,35 +86,38 @@ def InitialisationVecteur(nby,min,max):
 dictionnaire={
         'p0':np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(200,200,econ_args['n']),
-        's0':np.random.uniform(0,0,econ_args['n']),
+        'g0':np.random.uniform(1,2,econ_args['n']),
+        's0':np.random.uniform(1,1,econ_args['n']),
         't1':np.random.uniform(1,1,econ_args['n']),
-        'B0':random.randint(2,3)
+        'B0':random.randint(1,2)
         }
 
 # Dynamique
 sim.discrete_dynamics(**dictionnaire)
 #sim.prices
 #sim.labour
-#%% PLOT 
-matplotlib.use('WebAgg')
+# %%
+sim.Q_real[7][1:,:]
+
+# %% PLOT
 import matplotlib.pyplot as plt
+# %matplotlib inline 
 
 ### Prices
 plt.title("Prices of the firm's production")
 plt.xlabel('Time')
 plt.ylabel('P1')
 
-prices=plt.plot(sim.prices)
+plt.plot(sim.prices)
 
 #plt.xscale("linear")
 plt.yscale("log")
-plt.ylim(1,307)
+plt.ylim(1,float(max(sim.prices)))
 #plt.grid(True)
 plt.show()
 
-plt.savefig("/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/prices.png")
+#MKDIR NOT DONE: plt.savefig("/mnt/research-live/user/cboissel/network-economy/OneFirmCase_Images_v1/prices.png")
 
-#%% DEBUG
+# %% DEBUG
 import pdb
 

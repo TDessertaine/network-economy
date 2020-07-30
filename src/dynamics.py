@@ -2,7 +2,7 @@ import warnings
 from numba import jit
 
 
-#warnings.simplefilter("ignore")
+# warnings.simplefilter("ignore")
 
 import numpy as np
 import pdb
@@ -172,7 +172,7 @@ class Dynamics(object):
         s0 = kwargs['s0']
         B0 = kwargs['B0']
         #n = kwargs['n']
-        print(kwargs)
+        #print(kwargs)
         self.clear_all()
         # Initial conditions at t=0
         # Household
@@ -200,7 +200,7 @@ class Dynamics(object):
         fix['b'] = self.eco.b
         fix['lamb_a'] = np.copy(self.eco.lamb_a)
         fix['n'] = self.n
-        print(fix)
+        #print(fix)
         self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(**fix)
                                                                     
 
