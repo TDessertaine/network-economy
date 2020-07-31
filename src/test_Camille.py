@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # %%
 import os,sys
-sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
-
+#sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
+sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
 import numpy as np
 import random
 
@@ -27,10 +27,10 @@ d=1
 # Variables statiques Firms
 z=np.ones(n)
 sigma=np.random.uniform(0,1,1)
-alpha=0.1
-alpha_p=0.01
-beta=0.05
-beta_p=0.08
+alpha=0.2
+alpha_p=0.6
+beta=0.5
+beta_p=0.4
 a0=np.ones(n)*0.5
 j0=np.ones(n)
 w=1
@@ -55,7 +55,7 @@ econ_args = {
         }
 
 house_args = {
-        'labour':4,
+        'labour':5,
         'theta':np.ones(econ_args['n']) / econ_args['n'],
         'gamma':1
         }
@@ -84,31 +84,31 @@ def InitialisationVecteur(nby,min,max):
 
 #Conditions initiales
 dictionnaire={
-        'p0':np.array([1.2059357]),#np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([50]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(1,2,econ_args['n']),
-        's0':np.random.uniform(1,1,econ_args['n']),
+        'g0':np.random.uniform(15,20,econ_args['n']),
+        's0':np.random.uniform(3,4,econ_args['n']),
         't1':np.random.uniform(1,1,econ_args['n']),
-        'B0':random.randint(1,2)
+        'B0':random.randint(2,3)
         }
 
 # Dynamique
 sim.discrete_dynamics(**dictionnaire)
 #sim.prices
 #sim.labour
-# %%
-sim.Q_real[7][1:,:]
 
 # %%
 
-economie.compute_eq()
+#economie.compute_eq()
 #economie.v
 #economie.m_cal
 
 # %% PLOT
+import matplotlib as mpl
+mpl.use('WebAgg')
 import matplotlib.pyplot as plt
+#plt.switch_backend('Qt4Agg')
 # %matplotlib inline 
-
 ### Prices
 plt.title("Prices of the firm's production")
 plt.xlabel('Time')
@@ -128,21 +128,22 @@ plt.show()
 sim.Q_real[:,1,0]
 
 # %%
+import matplotlib as mpl
+mpl.use('WebAgg')
+import matplotlib.pyplot as plt
 ### Production
 plt.title("Labour supply")
 plt.xlabel('Time')
 plt.ylabel('P1')
 
-plt.plot(sim.Q_real[:,1,0])
+plt.plot(sim.Q_real[:,1,1])
 
 #plt.xscale("linear")
-plt.yscale("linear")
-plt.ylim(0,float(max(sim.labour))+1)
+plt.yscale("log")
+plt.ylim(0,float(max(sim.labour))+100)
 #plt.grid(True)
 plt.show()
 
 # %% DEBUG
 sim.labour
 
-
-# %%

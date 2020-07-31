@@ -261,16 +261,15 @@ class Economy:
         :return: productions of the n firms
         """
         if self.q == 0:
-            return np.power(np.min(np.ma.masked_invalid(np.divide(Q, self.j_a)),
-                                   axis=1),
+            return np.power(np.min(np.ma.masked_invalid(np.divide(Q, self.j_a))),
                             self.b)
         elif self.q == np.inf:
             return np.power(np.prod(np.power(np.ma.masked_invalid(np.divide(Q, self.j_a)),
-                                             self.a_a),
-                                    axis=1),
+                                             self.a_a)),
                             self.b)
         else:
-            return np.power(np.sum(np.ma.masked_invalid(self.a_a * np.power(self.j_a, -1. / self.q) * np.power(Q, 1. / self.q)), axis=1),
+            return np.power(np.sum(np.ma.masked_invalid(self.a_a * np.power(self.j_a, 1. / self.q)
+                                                        * np.power(Q, -1. / self.q))),
                             - self.b * self.q)
 
     def compute_p_net(self, prices):

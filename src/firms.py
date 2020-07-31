@@ -1,6 +1,5 @@
 import numba
 import numpy as np
-from math import exp
 
 from exception import *
 
@@ -44,7 +43,7 @@ class Firms(object):
         :param tradeflow: current supply + demand
         :return:
         """
-        return prices * exp( - self.alpha_p * (profits / cashflow) - self.alpha * (balance[1:] / tradeflow[1:]))
+        return prices * np.exp( - self.alpha_p * (profits / cashflow) - self.alpha * (balance[1:] / tradeflow[1:]))
 
     def update_stocks(self, supply, sales):
         """
@@ -74,8 +73,7 @@ class Firms(object):
         :return: Production targets for the next period
         """
         est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, Q_demand_prev, supply)
-        return prods * (
-                1 + self.beta * (est_profits / est_cashflow) - self.beta_p * (est_balance[1:] / est_tradeflow[1:]))
+        return prods * np.exp(self.beta * (est_profits / est_cashflow) - self.beta_p * (est_balance[1:] / est_tradeflow[1:]))
 
     @staticmethod
     #@numba.jit
@@ -88,10 +86,10 @@ class Firms(object):
         :return: Forecasts of gains - losses, supply - demand, gains + losses, supply + demand
         """
 
-        exp_gain = np.multiply(prices, np.sum(Q_demand_prev[:, 1:], axis=0))
-        exp_losses = np.matmul(Q_demand_prev[1:, :], np.concatenate(([1], prices)))
+        exp_gain = np.matmul(prices, np.sum(Q_demand_prev[1:, :].T, axis=0))
+        exp_losses = np.matmul(Q_demand_prev[:, 1:].T, np.concatenate(([1], prices)))
         exp_supply = supply
-        exp_demand = np.sum(Q_demand_prev, axis=0)
+        exp_demand = np.sum(Q_demand_prev[1:, :])
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
     @staticmethod
@@ -143,7 +141,7 @@ class Firms(object):
         :param demand: current demand
         :return: Real wage-rescaled values of gains - losses, supply - demand, gains + losses, supply + demand
         """
-        gain = np.multiply(prices, np.sum(Q[:, 1:], axis=0))
-        losses = np.multiply(Q[1:, :], np.concatenate(([1], prices)))
+        gain = np.multiply(prices, np.sum(Q[1:, :]))
+        losses = np.matmul(Q[:, 1:].T, np.concatenate(([1], prices)))
 
         return gain - losses, supply - demand, gain + losses, supply + demand
