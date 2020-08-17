@@ -78,14 +78,14 @@ class Dynamics(object):
                                                       self.supply,
                                                       self.prods
                                                       )
-        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(**{'targets':self.targets,
+        self.Q_demand[t, :, 1:] = self.eco.firms.compute_demands_firms(**{'targets':self.targets,
                                                                     'prices':self.prices[t],
                                                                     'prices_net':self.prices_net,
                                                                     'q':self.eco.q,
                                                                     'b':self.eco.b,
                                                                     'lamb_a':self.eco.lamb_a,
                                                                     'n':self.n}
-                                                                    )
+                                                                    ).T
 
     def time_t(self, t):
         """
@@ -97,16 +97,16 @@ class Dynamics(object):
         :return: side-effect
         """
 
-        self.demand = np.sum(self.Q_demand[t], axis=0)
+        self.demand = np.sum(self.Q_demand[t], axis=1)
         # Supply constraint
         self.s_vs_d = np.clip(self.supply / self.demand, None, 1)  # =1 if supply >= constraint
 
         # Real work according to the labour supply constraint and associated budget
         self.Q_real[t, 0, 1] = self.Q_demand[t, 0, 1] * self.s_vs_d[0]
-        self.budget[t] = self.budget_res + np.sum(self.Q_real[t, 0, 1])
+        self.budget[t] = self.budget_res + self.Q_real[t, 0, 1]
 
         # Budget constraint
-        offered_cons = self.Q_demand[t, 0, 1:] * self.s_vs_d[1:]
+        offered_cons = self.Q_demand[t, 0, 1] * self.s_vs_d[1]
         self.b_vs_c, self.Q_real[t, 1, 0], self.budget_res = self.eco.house.budget_constraint(self.budget[t],
                                                                                                self.prices[t],
                                                                                                offered_cons
@@ -114,12 +114,12 @@ class Dynamics(object):
 
         # Real trades according to the supply constraint
         diag = np.diag(
-            self.s_vs_d[1:] + offered_cons * (1 - self.b_vs_c) / np.sum(self.Q_demand[t, 1:, 1:], axis=0))
+            self.s_vs_d[1] + offered_cons * (1 - self.b_vs_c) / self.Q_demand[t, 1, 1])
 
-        self.Q_real[t, 1:, 1:] = np.clip(np.matmul(self.Q_demand[t, 1:, 1:],
+        self.Q_real[t, 1, 1] = np.clip(np.multiply(self.Q_demand[t, 1, 1],
                                                    diag),
                                          None,
-                                         self.Q_demand[t, 1:, 1:])
+                                         self.Q_demand[t, 1, 1])
         # print(self.Q_real[t])
         self.tradereal = np.sum(self.Q_real[t], axis=0)
 
@@ -154,7 +154,7 @@ class Dynamics(object):
             t]  # Clipping to avoid negative almost zero values
         self.prices_net = self.eco.compute_p_net(self.prices[t + 1])
 
-        self.prods = self.eco.production_function(self.Q_real[t, 1:, :])
+        self.prods = self.eco.production_function(self.Q_real[t, :, 1])
         self.stocks[t + 1] = self.eco.firms.update_stocks(self.supply[1:],
                                                           self.tradereal[1:]
                                                           )
@@ -178,7 +178,7 @@ class Dynamics(object):
         # Household
         self.wages[0] = w0
         self.budget_res = B0 / w0
-
+        # Firm
         self.prods = g0
         self.stocks[1] = s0
         self.prices[1] = p0 / w0
@@ -187,7 +187,6 @@ class Dynamics(object):
             self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
                                                              self.prices[1]
                                                              )
-
         self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + s0])
 
         # Firms
@@ -201,11 +200,15 @@ class Dynamics(object):
         fix['lamb_a'] = np.copy(self.eco.lamb_a)
         fix['n'] = self.n
         #print(fix)
-        self.Q_demand[1, 1] = self.eco.firms.compute_demands_firms(**fix)
+        self.Q_demand[1, :, 1] = self.eco.firms.compute_demands_firms(**fix)
                                                                     
-
+        print("DYNAMICS BEFORE LOOP T MINUS, check REAL ", self.Q_real[1])
+        print("DYNAMICS BEFORE LOOP T MINUS, check DEMAND ", self.Q_demand[1])
         self.time_t(1)
+        print("DYNAMICS BEFORE LOOP T, check REAL ", self.Q_real[1])
         self.time_t_plus(1)
+        print("DYNAMICS BEFORE LOOP T PLUS, check REAL ", self.Q_real[1])
+        print("DYNAMICS BEFORE LOOP T PLUS, check DEMAND ", self.Q_demand[1])
         t = 2
         while t < self.t_max:
             # print(t)

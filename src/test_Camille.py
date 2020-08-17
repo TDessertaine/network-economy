@@ -12,51 +12,47 @@ from economy import Economy as eco
 import firms 
 import household
 
-
+################################ GIT STASH 05/08: "one_firm: 2781c7b Edits one firm case"
 
 #import tqdm as tqdm
 
 
 # %% CREATION ECONOMIE
 
-# Dimensions 
-n=1
-d=1
 
 
 # Variables statiques Firms
-z=np.ones(n)
+z=np.random.uniform(3,3,1)
 sigma=np.random.uniform(0,1,1)
 alpha=0.2
-alpha_p=0.6
-beta=0.5
-beta_p=0.4
-a0=np.ones(n)*0.5
-j0=np.ones(n)
-w=1
-q=0
-b=1
+alpha_p=0.08
+beta=0.1
+beta_p=0.05
+w=0.02
+
+
 # Variables statiques Household
-labour=100
+labour=10
 theta=np.ones(n)/n
 gamma=1
 phi=1
 
+# Variables statiques Economiy
 econ_args = {
         'n':1,
         'd':1,
         'netstring':'regular',
         'directed':True,
-        'j0':np.ones(1),
+        'j0':np.array([3]),
         'j1':np.ones(1),
         'a0':np.ones(1)*0.5,
         'q':1,
-        'b':0.1
+        'b':0.95
         }
 
 house_args = {
-        'labour':5,
-        'theta':np.ones(econ_args['n']) / econ_args['n'],
+        'labour':50,
+        'theta':np.ones(1),
         'gamma':1
         }
 
@@ -75,7 +71,7 @@ economie.set_quantities()
 
 
 # Création de l'objet dynamique
-sim = dyn(t_max=200,e=economie)
+sim = dyn(t_max=1000,e=economie)
 
 # %% SIMULATION
 
@@ -84,12 +80,12 @@ def InitialisationVecteur(nby,min,max):
 
 #Conditions initiales
 dictionnaire={
-        'p0':np.array([50]),#np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([10]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(15,20,econ_args['n']),
-        's0':np.random.uniform(3,4,econ_args['n']),
+        'g0':np.random.uniform(1,1,econ_args['n']),
+        's0':np.random.uniform(0,0,econ_args['n']),
         't1':np.random.uniform(1,1,econ_args['n']),
-        'B0':random.randint(2,3)
+        'B0':random.randint(0,0)
         }
 
 # Dynamique
@@ -99,13 +95,11 @@ sim.discrete_dynamics(**dictionnaire)
 
 # %%
 
-#economie.compute_eq()
-#economie.v
-#economie.m_cal
+#SAS AVANT PLOTS
 
 # %% PLOT
 import matplotlib as mpl
-mpl.use('WebAgg')
+#mpl.use('WebAgg')
 import matplotlib.pyplot as plt
 #plt.switch_backend('Qt4Agg')
 # %matplotlib inline 
@@ -124,26 +118,23 @@ plt.show()
 
 #MKDIR NOT DONE: plt.savefig("/mnt/research-live/user/cboissel/network-economy/OneFirmCase_Images_v1/prices.png")
 
-# %%
-sim.Q_real[:,1,0]
 
 # %%
 import matplotlib as mpl
-mpl.use('WebAgg')
+#mpl.use('Qt5Agg')
 import matplotlib.pyplot as plt
 ### Production
-plt.title("Labour supply")
-plt.xlabel('Time')
-plt.ylabel('P1')
+fig, ax = plt.subplots()
+ax.set_title("Labour supply")
+ax.set_xlabel('Time')
+ax.set_ylabel('P1')
 
-plt.plot(sim.Q_real[:,1,1])
+ax.plot(sim.Q_demand[:,1,1])
 
 #plt.xscale("linear")
-plt.yscale("log")
-plt.ylim(0,float(max(sim.labour))+100)
+ax.set_yscale("log")
+ax.set_ylim(0,float(max(sim.labour))+100)
 #plt.grid(True)
 plt.show()
 
-# %% DEBUG
-sim.labour
 

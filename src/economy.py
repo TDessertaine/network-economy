@@ -279,7 +279,7 @@ class Economy:
         :return: current wage-rescaled network prices
         """
         if self.q == np.inf:
-            return np.sum(self.lamb_a, axis=1)
+            return self.lamb_a
         else:
             return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))
 
