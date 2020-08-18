@@ -22,7 +22,7 @@ import household
 
 
 # Variables statiques Firms
-z=np.random.uniform(3,3,1)
+z=np.random.uniform(5,5,1)
 sigma=np.random.uniform(0,1,1)
 alpha=0.1
 alpha_p=0.08
@@ -32,7 +32,7 @@ w=0.02
 
 
 # Variables statiques Household
-labour=50
+labour=100
 theta=np.ones(n)/n
 gamma=1
 phi=1
@@ -44,14 +44,14 @@ econ_args = {
         'netstring':'regular',
         'directed':True,
         'j0':np.array([3]),
-        'j1':np.array([1]),
+        'j1':np.array([2]),
         'a0':np.ones(1)*0.5,
-        'q':2,
+        'q':0.5,
         'b':1
         }
 
 house_args = {
-        'labour':50,
+        'labour':10,
         'theta':np.ones(1),
         'gamma':1
         }
@@ -71,13 +71,13 @@ economie.set_quantities()
 
 
 # Création de l'objet dynamique
-sim = dyn(t_max=1000,e=economie)
+sim = dyn(t_max=500,e=economie)
 
 # %% SIMULATION
 
 #Conditions initiales
 dictionnaire={
-        'p0':np.array([5]),#np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([0.5]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
         'g0':np.random.uniform(2,3,econ_args['n']),
         's0':np.random.uniform(0,0,econ_args['n']),
@@ -190,8 +190,30 @@ ax.set_ylim(0,float(max(sim.labour))+100)
 plt.show()
 
 #%% Cas b=1 & q<+inf
+from scipy.optimize import fsolve
+
+def non_linear_eq_b1_qnonzero(x):
+        return ((sim.eco.firms.z*x)**(1/(sim.eco.q+1)))-sim.eco.lamb_a[1]*x-sim.eco.lamb_a[0]
+
 x_s=[i/10 for i in range(1000)]
-y=[(sim.eco.firms.z*x)**(1/(sim.eco.q+1))-sim.eco.lamb_a[1]*x-sim.eco.lamb_a[0] for x in x_s]
+    
+y=[non_linear_eq_b1_qnonzero(x) for x in x_s]
+y_abs=[abs(non_linear_eq_b1_qnonzero(x)) for x in x_s]
+
 c=[0 for x in x_s]
-x=lstsq(y,c)
-plt.plot(y[:50])
+
+initial_guess_peq=10**8
+
+x_eq=y_abs.index(min(y_abs))
+
+x_eq=[]
+initial_guess_peq_1=sim.eco.firms.z**(sim.eco.q+1)+sim.eco.lamb_a[1]+sim.eco.lamb_a[0]
+initial_guess_peq_2=0
+x_eq.append(fsolve(non_linear_eq_b1_qnonzero,initial_guess_peq_1))
+x_eq.append(fsolve(non_linear_eq_b1_qnonzero,initial_guess_peq_2))
+
+
+plt.axvline(x=x_eq[0]*10,linewidth=1.3, alpha=1, color="green", label="p=p_eq")
+plt.axvline(x=x_eq[1]*10,linewidth=1.3, alpha=1, color="red", label="p=p_eq")
+
+plt.plot(y_abs[:100])

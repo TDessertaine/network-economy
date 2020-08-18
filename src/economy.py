@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from numpy.linalg import lstsq
 from scipy.optimize import anderson
-from scipy.optimize import leastsq
+from scipy.optimize import fsolve
 
 from firms import Firms
 from household import Household
@@ -287,7 +287,7 @@ class Economy:
     
         
     def non_linear_eq_b1_qnonzero(self,x):
-        return self.lamb_a[0]*x**(1/(self.q+1))-self.lamb_a[1]*x-self.lamb_a[0]
+        return ((self.firms.z*x)**(1/(self.q+1)))-(self.lamb_a[1]*x)-(self.lamb_a[0])
     
     def compute_eq(self):
         """
@@ -328,11 +328,12 @@ class Economy:
                 self.p_eq = self.j0/(self.firms.z-self.j1)
                 self.g_eq = self.house.kappa/self.j0
             else:
-                if self.j1>self.house.kappa*self.firms.z/self.j0:
-                    initial_guess_peq=self.lamb_a[0]**(self.q)
-                    self.p_eq=leastsq(self.non_linear_eq_b1_qnonzero,initial_guess_peq)
-                else:
-                    print("No known equilibrium")
-                
+                self.p_eq=[]
+                initial_guess_peq_1=self.firms.z**(self.q+1)+self.lamb_a[1]+self.lamb_a[0]
+                initial_guess_peq_2=0
+                self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_1))
+                self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_2))
+
+
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
         self.b_eq = self.house.thetabar / self.mu_eq
