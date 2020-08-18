@@ -12,10 +12,11 @@ import numpy as np
 import pandas as pd
 from numpy.linalg import lstsq
 from scipy.optimize import anderson
+from scipy.optimize import leastsq
 
 from firms import Firms
 from household import Household
-from network import create_net
+
 
 warnings.simplefilter("ignore")
 
@@ -66,6 +67,7 @@ class Economy:
         m1 = np.dot(m_cal, p)
         m2 = g * m1 - p * np.dot(m_cal.T, g)
         return np.concatenate((m1 - v1 - v, m2 - g * v + kappa))
+    
 
     @staticmethod
     def adj_list(j):
@@ -282,7 +284,11 @@ class Economy:
             return self.lamb_a
         else:
             return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))
-
+    
+        
+    def non_linear_eq_b1_qnonzero(self,x):
+        return self.lamb_a[0]*x**(1/(self.q+1))-self.lamb_a[1]*x-self.lamb_a[0]
+    
     def compute_eq(self):
         """
         :return: compute the equilibrium of the economy
@@ -290,33 +296,10 @@ class Economy:
         # TODO: code COBB-DOUGLAS q=inf
         if self.b != 1:
             if self.q == 0:
-                init_guess_peq = lstsq(self.m_cal, self.v, rcond=10e-7)[0]
-                init_guess_geq = lstsq(self.m_cal.T, np.divide(self.house.kappa, init_guess_peq), rcond=None)[0]
-
-                par = (self.firms.z,
-                       self.v,
-                       self.m_cal,
-                       self.b - 1,
-                       self.house.kappa)
-
-                pg_init = anderson(lambda x: self.non_linear_eq_qzero(x, *par),
-                                   np.concatenate((init_guess_peq, init_guess_geq)),
-                                   M=50
-                                   )
-
-                pg_int = anderson(lambda x: self.non_linear_eq_qzero(x, *par),
-                                  pg_init,
-                                  M=50
-                                  )
-
-                pg = anderson(lambda x: self.non_linear_eq_qzero(x, *par),
-                              pg_int,
-                              M=50
-                              )
-                # pylint: disable=unbalanced-tuple-unpacking
-                self.p_eq, g = np.split(pg, 2)
-                self.g_eq = np.power(g, self.b)
+                self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
+                self.g_eq = (self.house.kappa/self.j0)**self.b
             else:
+                print("A CODER")
                 init_guess_peq_zeta = lstsq(self.m_cal, self.v, rcond=None)[0]
                 init_guess_w = lstsq(self.m_cal.T,
                                      np.divide(self.house.kappa, init_guess_peq_zeta),
@@ -342,13 +325,14 @@ class Economy:
                                      self.b / (self.zeta * (self.b * self.q + 1)))
         else:
             if self.q == 0:
-                self.p_eq = lstsq(self.m_cal, self.v, rcond=10e-7)[0]
-                self.g_eq = lstsq(self.m_cal.T, np.divide(self.house.kappa, self.p_eq), rcond=10e-7)[0]
+                self.p_eq = self.j0/(self.firms.z-self.j1)
+                self.g_eq = self.house.kappa/self.j0
             else:
-                peq_zeta = lstsq(self.m_cal, self.v, rcond=None)[0]
-                self.p_eq = np.power(peq_zeta, 1. / self.zeta)
-                w = lstsq(self.m_cal.T, np.divide(self.house.kappa, peq_zeta), rcond=None)[0]
-                self.g_eq = np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(peq_zeta, self.q))
-
+                if self.j1>self.house.kappa*self.firms.z/self.j0:
+                    initial_guess_peq=self.lamb_a[0]**(self.q)
+                    self.p_eq=leastsq(self.non_linear_eq_b1_qnonzero,initial_guess_peq)
+                else:
+                    print("No known equilibrium")
+                
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
         self.b_eq = self.house.thetabar / self.mu_eq

@@ -12,10 +12,10 @@ from economy import Economy as eco
 import firms 
 import household
 
-################################ GIT STASH 05/08: "one_firm: 2781c7b Edits one firm case"
 
-#import tqdm as tqdm
+#%%
 
+# SIMULATION
 
 # %% CREATION ECONOMIE
 
@@ -24,15 +24,15 @@ import household
 # Variables statiques Firms
 z=np.random.uniform(3,3,1)
 sigma=np.random.uniform(0,1,1)
-alpha=0.2
+alpha=0.1
 alpha_p=0.08
-beta=0.1
+beta=0.2
 beta_p=0.05
 w=0.02
 
 
 # Variables statiques Household
-labour=10
+labour=50
 theta=np.ones(n)/n
 gamma=1
 phi=1
@@ -44,10 +44,10 @@ econ_args = {
         'netstring':'regular',
         'directed':True,
         'j0':np.array([3]),
-        'j1':np.ones(1),
+        'j1':np.array([1]),
         'a0':np.ones(1)*0.5,
-        'q':1,
-        'b':0.95
+        'q':2,
+        'b':1
         }
 
 house_args = {
@@ -75,16 +75,13 @@ sim = dyn(t_max=1000,e=economie)
 
 # %% SIMULATION
 
-def InitialisationVecteur(nby,min,max):
-    return np.array([random.randint(min, max) for i in range(nby)])
-
 #Conditions initiales
 dictionnaire={
-        'p0':np.array([10]),#np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([5]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':np.random.uniform(1,1,econ_args['n']),
+        'g0':np.random.uniform(2,3,econ_args['n']),
         's0':np.random.uniform(0,0,econ_args['n']),
-        't1':np.random.uniform(1,1,econ_args['n']),
+        't1':np.random.uniform(2,3,econ_args['n']),
         'B0':random.randint(0,0)
         }
 
@@ -95,7 +92,7 @@ sim.discrete_dynamics(**dictionnaire)
 
 # %%
 
-#SAS AVANT PLOTS
+# PLOTS 
 
 # %% PLOT
 import matplotlib as mpl
@@ -138,3 +135,63 @@ ax.set_ylim(0,float(max(sim.labour))+100)
 plt.show()
 
 
+#%%
+
+# EQUILIBRIUM
+
+
+#%%  COMPUTE EQUILIBRIUM
+
+sim.eco.compute_eq()
+print("P_EQ", sim.eco.p_eq)
+print("G_EQ",sim.eco.g_eq)
+
+#%% PLOT EQUILIBRIUM ON PRICES 
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+### Prices
+plt.title("Prices of the firm's production")
+plt.xlabel('Time')
+plt.ylabel('P1')
+
+plt.plot(sim.prices)
+
+plt.axhline(y=sim.eco.p_eq[0],linewidth=1.3, alpha=1, color="green", label="p=p_eq")
+plt.axhline(y=sim.eco.p_eq[1],linewidth=1.3, alpha=1, color="red", label="p=p_eq")
+#plt.xscale("linear")
+plt.yscale("log")
+
+#plt.grid(True)
+plt.show()
+
+#%% PLOT EQUILIBRIUM ON PRODUCTION 
+
+import matplotlib as mpl
+#mpl.use('Qt5Agg')
+import matplotlib.pyplot as plt
+### Production
+fig, ax = plt.subplots()
+ax.set_title("Labour supply")
+ax.set_xlabel('Time')
+ax.set_ylabel("l")
+
+prod=[sim.Q_demand[i,1,1]+sim.Q_demand[i,1,0] for i in range(len(sim.Q_demand))]
+
+ax.plot(prod)
+
+plt.axhline(y=sim.eco.g_eq*sim.eco.firms.z,linewidth=1.3, alpha=1, color="green", label="prod=prod_eq")
+
+#plt.xscale("linear")
+ax.set_yscale("log")
+ax.set_ylim(0,float(max(sim.labour))+100)
+#plt.grid(True)
+plt.show()
+
+#%% Cas b=1 & q<+inf
+x_s=[i/10 for i in range(1000)]
+y=[(sim.eco.firms.z*x)**(1/(sim.eco.q+1))-sim.eco.lamb_a[1]*x-sim.eco.lamb_a[0] for x in x_s]
+c=[0 for x in x_s]
+x=lstsq(y,c)
+plt.plot(y[:50])
