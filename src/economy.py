@@ -91,6 +91,7 @@ class Economy:
         self.q = q
         self.zeta = 1 / (q + 1)
         self.b = b
+        self.coefficient=self.zeta*((self.b*self.q+1)/self.b)
 
         # Auxiliary network variables
         self.lamb = None
@@ -287,11 +288,26 @@ class Economy:
     
         
     def non_linear_eq_b1_qnonzero(self,x):
+        """
+        Function used to solve the equilibrium equations in the case 
+        b=1 and q<+inf
+        """
         return ((self.firms.z*x)**(1/(self.q+1)))-(self.lamb_a[1]*x)-(self.lamb_a[0])
     
+    def non_linear_eq_b_q_finites_1(self,u):
+        """
+        Function used to solve the first equilibrium equations in the case 
+        b<1 and q<+inf
+        :param x: zeta*(b*q+1)/b
+        """
+        return  self.house.kappa+(self.firms.z**(self.q*self.zeta))*self.lamb_a[1]*u**self.coefficient-self.firms.z*u
+    
+    def non_linear_eq_b_q_finites_1_prime(self,u): 
+        return (self.firms.z**(self.q*self.zeta))*self.lamb_a[1]*self.coefficient*(u**(self.coefficient-1))-self.firms.z
+        
     def compute_eq(self):
         """
-        :return: compute the equilibrium of the economy
+        :return: computes the equilibrium of the economy
         """
         # TODO: code COBB-DOUGLAS q=inf
         if self.b != 1:
@@ -299,40 +315,43 @@ class Economy:
                 self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
             else:
-                print("A CODER")
-                init_guess_peq_zeta = lstsq(self.m_cal, self.v, rcond=None)[0]
-                init_guess_w = lstsq(self.m_cal.T,
-                                     np.divide(self.house.kappa, init_guess_peq_zeta),
-                                     rcond=None)[0]
-
-                par = (np.power(self.firms.z, self.zeta),
-                       self.v,
-                       self.m_cal,
-                       self.q,
-                       (self.b - 1) / (self.b * self.q + 1),
-                       self.house.kappa
-                       )
-
-                uw = anderson(lambda x: self.non_linear_eq_qnonzero(x, *par),
-                              np.concatenate((init_guess_peq_zeta, init_guess_w)),
-                              M=50)
-
-                # pylint: disable=unbalanced-tuple-unpacking
-                u, w = np.split(uw, 2)
-                uq = np.power(u, self.q)
-                self.p_eq = np.power(u, 1. / self.zeta)
-                self.g_eq = np.power(np.divide(w, np.power(self.firms.z, self.q * self.zeta) * uq),
-                                     self.b / (self.zeta * (self.b * self.q + 1)))
+                self.u=[]
+                initial_guess_u_1=0
+                initial_guess_u_2=((self.firms.z**(self.zeta))/(self.lamb_a[1]))**(1/(self.coefficient-1))
+                self.u.append(fsolve(func=self.non_linear_eq_b_q_finites_1,x0=initial_guess_u_1, fprime=self.non_linear_eq_b_q_finites_1_prime, xtol=10**(100*(1/(1-self.coefficient)))))
+                self.u.append(fsolve(func=self.non_linear_eq_b_q_finites_1,x0=initial_guess_u_2, fprime=self.non_linear_eq_b_q_finites_1_prime, xtol=10**(100*(1/(1-self.coefficient)))))
+                
+                self.p_eq=[]
+                
+                lamb_a_0=self.lamb_a[0]
+                lamb_a_1=self.lamb_a[1]
+                z=self.firms.z
+                zeta=self.zeta
+                b=self.b
+                coefficient=self.coefficient
+                
+                initial_guess_v=0
+                for term in self.u:
+                    def non_linear_eq_b_q_finites_2(v):
+                        return lamb_a_0*(z**(-zeta))*(v**(1/(1-b)))+v*lamb_a_1*(z**(-zeta))-(term**(1-coefficient))
+                    def non_linear_eq_b_q_finites_2_prime(v):
+                        return lamb_a_0*(z**(-zeta))*(1/(1-b))*(v**(b/(1-b)))+(z**(-zeta))*lamb_a_1
+                    self.p_eq.append((fsolve(func=non_linear_eq_b_q_finites_2, x0=initial_guess_v, fprime=non_linear_eq_b_q_finites_2_prime, xtol=10**(100*(1/(1-self.coefficient)))))**(1/(1-self.coefficient)))
+    
+                self.g_eq=[((self.lamb_a[0]*(self.firms.z**(-self.zeta))*(p**(-self.zeta))+(self.firms.z**(-self.zeta))*self.lamb_a[1])**(1/(1-self.coefficient))) for p in self.p_eq]
         else:
             if self.q == 0:
                 self.p_eq = self.j0/(self.firms.z-self.j1)
                 self.g_eq = self.house.kappa/self.j0
             else:
                 self.p_eq=[]
+                self.g_eq=[]
                 initial_guess_peq_1=self.firms.z**(self.q+1)+self.lamb_a[1]+self.lamb_a[0]
                 initial_guess_peq_2=0
                 self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_1))
                 self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_2))
+                self.g_eq.append((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q * self.zeta)*self.p_eq[0])))   
+                self.g_eq.append((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta)*self.p_eq[1])))
 
 
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
