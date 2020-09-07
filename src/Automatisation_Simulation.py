@@ -31,7 +31,7 @@ def Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b):
     # Variables statiques Firms
     sim_args["firms_args"]={
             "z":np.random.uniform(5,5,1),
-            "sigma":np.random.uniform(0,1,1),
+            "sigma":np.random.uniform(0.2,0.2,1),
             "alpha":alpha,
             "alpha_p":alpha_p,
             "beta":beta,
@@ -205,7 +205,7 @@ def Plot_ProductionEq(sim,g_eq_0):
 
 #%% SIMULATIONS 
 
-values=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
+values=[0.05,0.1,0.25,0.5,0.75]
 q=0
 b=1
 directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
@@ -225,32 +225,36 @@ for alpha in values:
                     behaviour[scenario]=Classify_p_inf(sim,p_eq_0)
 
 
+#%%  
+                    
+   ### REPRESENTATIONS GRAPHIQUES    
+             
 #%% tentative de création d'un diagramme de stabilité 
 
-def Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,beta,beta_p,w,nb_be):
-            title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n beta="+str(beta)+"_"+"beta_p="+str(beta_p)+"_"+"w="+str(w) 
+def Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,beta,nb_be):
+            title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"beta="+str(beta) 
             fig, ax = plt.subplots()
             ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be)  
             ax.set_title(title)
-            ax.set_xlabel("alpha")
-            ax.set_ylabel("alpha_p")
+            ax.set_xlabel("beta_p")
+            ax.set_ylabel("w")
             im=ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be) 
             fig.colorbar(im,ticks=[0,1,2,3])   
             fig.savefig(directoire+"/"+title+".png")
             
                     
-for beta in values:
-    for beta_p in values:
-        for w in values:
+for alpha in values:
+    for alpha_p in values:
+        for beta in values:
             data_diagramme_x=[]
             data_diagramme_y=[]       
             data_diagramme_be=[]            
             for key in behaviour:
-                if "beta="+str(beta) in key and "beta_p="+str(beta_p) in key and "w="+str(w) in key:
-                    alpha=float(re.findall(r'alpha=(\d+\.\d+)_',key)[0])
-                    alpha_p=float(re.findall(r'alpha_p=(\d+\.\d+)_',key)[0])
-                    data_diagramme_x.append(alpha)
-                    data_diagramme_y.append(alpha_p)
+                if "alpha="+str(alpha) in key and "alpha_p="+str(alpha_p) in key and "beta="+str(beta) in key:
+                    beta_p=float(re.findall(r'beta_p=(\d+\.\d+)_',key)[0])
+                    w=float(re.findall(r'w=(\d+\.\d+)',key)[0])
+                    data_diagramme_x.append(beta_p)
+                    data_diagramme_y.append(w)
                     if behaviour[key]=="div":
                         data_diagramme_be.append(0) 
                     elif behaviour[key]=="div_exp":
@@ -260,7 +264,7 @@ for beta in values:
                     elif behaviour[key]=="conv_infl":
                         data_diagramme_be.append(3)
             nb_be=len(set(data_diagramme_be))
-            Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,beta,beta_p,w,nb_be)
+            Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,beta,nb_be)
 
 
 #%% GIF
@@ -269,10 +273,52 @@ from os.path import isfile, join
 file=directoire+"/"
 filenames = [f for f in listdir(file) if isfile(join(file, f))]
 filenames.remove('.DS_Store')
+#filenames.remove("5ValeursAlphaAlpha_p.gif")
+#filenames.remove("5ValeursAlphaBeta.gif")
+#filenames.remove('5ValeursAlpha_pBeta.gif')
+#filenames.remove('5ValeursAlphaBeta_p.gif')
+#filenames.remove('5ValeursAlphaW.gif')
+#filenames.remove('5ValeursAlpha_pW.gif')
+#filenames.remove('5ValeursAlpha_pBeta_p.gif')
+#filenames.remove('5ValeursBetaBeta_p.gif')
+#filenames.remove('5ValeursBetaW.gif')
 filenames.sort()            
 import imageio
 images = []
 
 for filename in filenames:
     images.append(imageio.imread(file+filename))
-imageio.mimsave(file+'essai.gif', images, duration=1)
+imageio.mimsave(file+'5ValeursBeta_pW.gif', images, duration=1)
+
+#%% 
+
+    ### STATS DES
+
+#%% Type de convergence en fonction de la somme des paramètres 
+
+## Dictionnaire
+sum_param={}
+sum_param["div"]=[]
+sum_param["div_exp"]=[]
+sum_param["conv_eq"]=[]
+sum_param["conv_infl"]=[]
+
+for key in behaviour:
+    somme=sum([float(i) for i in re.findall(r'=(\d+\.\d+)',key)])
+    sum_param[behaviour[key]].append(somme)
+
+## Stats des
+import statistics as stats
+
+for i in sum_param:
+    print(i, "effectifs=",len(sum_param[i]), "moyenne=", stats.mean(sum_param[i]))
+    print("quartiles=",np.quantile(np.array(sum_param[i]),q=[0.25,0.5,0.75]))
+    fig1,ax1=plt.subplots()
+    ax1.set_title(i+"_Distribution")
+    ax1.hist(sum_param[i])
+    fig2,ax2=plt.subplots()
+    ax2.set_title(i+"_Distribution")
+    prob=[j for j in range(len(sum_param[i]))]
+    ax2.plot(sorted(sum_param[i]), prob)
+    
+#%% 
