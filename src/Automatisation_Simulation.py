@@ -25,7 +25,7 @@ import household
 
 # %% CREATION ECONOMIE
 
-def Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b):
+def Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b,pert):
     sim_args={}
     
     # Variables statiques Firms
@@ -62,8 +62,10 @@ def Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b):
             }
     
     # Variables statiques Dynamics
-    p_init=5
-    g_init=np.array([3])
+    #p_init=3
+    #g_init=np.array([5])
+    p_init=1.6666666666666667+pert
+    g_init=np.array([2])+pert
     
     sim_args["dyn_args"]={
             'p0':np.array([p_init]),#np.random.uniform(1,2,econ_args['n']),
@@ -94,7 +96,7 @@ def Simulation(**sim_args):
     
     
     # Création de l'objet dynamique
-    sim = dyn(t_max=500,e=economie)
+    sim = dyn(t_max=700,e=economie)
     
     # Dynamique
     sim.discrete_dynamics(**sim_args["dyn_args"])
@@ -139,22 +141,41 @@ def Disturb_Equilibrium(p_eq_0, g_eq_0):
 
 #%% CLASSIFY EQUILIBRIUM
 
-def Classify_p_inf(sim,p_eq_0):
-    diff=sim.prices[-101:-1]-sim.prices[-102:-2]
-    if np.mean(diff)==0:
-        if sim.prices[-10]==p_eq_0:
+def Classify_p_inf(sim,p_eq_0, threshold=1e-6):
+    std_diff=np.std(sim.prices[-101:-1]-sim.prices[-102:-2])
+    if std_diff<=threshold:
+        if np.abs(sim.prices[-10]-p_eq_0)<=threshold:
             p_inf="conv_eq"
+            
         else:
             p_inf="conv_infl"
+            
     
-    elif np.mean(np.log(diff))>=10:
+    elif np.mean(np.log(std_diff))>=10:
         p_inf="div_exp"
         
     else:
         p_inf="div"
     
     return p_inf
+
+
+def Compute_ExpExponent(sim,p_eq_0,t_max=500):
+
+    return np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),n=1)/np.diff(np.array(range(t_max-100,t_max)))[-1]
+
     
+    
+ 
+#%% Verification
+        
+sim_args=Variables_Simulation(alpha=0.75,alpha_p=0.75,beta=0.75,beta_p=0.5,w=0.5,q=0,b=1,pert=pert)
+sim=Simulation(**sim_args)
+p_eq_0,g_eq_0=Compute_Equilibrium(sim)
+Plot_PricesEq(sim, p_eq_0)
+Plot_ProductionEq(sim, p_eq_0)
+Classify_p_inf(sim,p_eq_0)
+
     
 #%% PLOT EQUILIBRIUM ON PRICES 
 
@@ -208,6 +229,7 @@ def Plot_ProductionEq(sim,g_eq_0):
 values=[0.05,0.1,0.25,0.5,0.75]
 q=0
 b=1
+pert=random.uniform(-10**(-5),10**(-5))
 directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
 #os.mkdir(directoire)                
 behaviour={}
@@ -217,54 +239,73 @@ for alpha in values:
             for beta_p in values:
                 for w in values:
                     scenario="alpha="+str(alpha)+"_alpha_p="+str(alpha_p)+"_beta="+str(beta)+"_beta_p="+str(beta_p)+"_w="+str(w)         
-                    sim_args=Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b)
+                    sim_args=Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b,pert)
                     sim=Simulation(**sim_args)
                     p_eq_0,g_eq_0=Compute_Equilibrium(sim)
                     #Plot_PricesEq(sim, p_eq_0)
                     #Plot_ProductionEq(sim, p_eq_0)
-                    behaviour[scenario]=Classify_p_inf(sim,p_eq_0)
+                    #behaviour[scenario]=Classify_p_inf(sim,p_eq_0, threshold=1e-6)
+                    behaviour[scenario]=float(Compute_ExpExponent(sim,p_eq_0)[-1])
 
+
+#%% SAVE DATA
+import pandas as pd
+pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/5ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
 #%%  
                     
-   ### REPRESENTATIONS GRAPHIQUES    
+   ### REPRESENTATIONS GRAPHIQUES AVEC CLASSIFY
              
 #%% tentative de création d'un diagramme de stabilité 
 
-def Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,beta,nb_be):
-            title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"beta="+str(beta) 
-            fig, ax = plt.subplots()
-            ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be)  
-            ax.set_title(title)
-            ax.set_xlabel("beta_p")
-            ax.set_ylabel("w")
-            im=ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be) 
-            fig.colorbar(im,ticks=[0,1,2,3])   
-            fig.savefig(directoire+"/"+title+".png")
+def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be):
+    title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
+    fig, ax = plt.subplots()
+    ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be)  
+    ax.set_title(title)
+    ax.set_xlabel("beta_p")
+    ax.set_ylabel("beta")
+    im=ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be) 
+    fig.colorbar(im,ticks=[0,1,2,3])   
+    fig.savefig(directoire+"/"+title+".png")
+
+def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,values=values):
+    coordonnees={}
+    for i in range(len(values)):
+        coordonnees[values[i]]=i
+        
+    data_slope=np.zeros((len(values),len(values)))
+    for i in range(len(values)):
+        for j in range(len(values)):
+            data_slope[coordonnees[data_diagramme_x[i+j]],coordonnees[data_diagramme_x[i+j]]]=data_diagramme_be[i+j]
+        
+    title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
+    fig, ax = plt.subplots()
+    ax.pcolor(data_slope) 
+    ax.set_title(title)
+    ax.set_xlabel("beta_p")
+    ax.set_ylabel("beta")   
+    #fig.savefig(directoire+"/"+title+".png")
+
             
                     
 for alpha in values:
     for alpha_p in values:
-        for beta in values:
+        for w in values:
             data_diagramme_x=[]
             data_diagramme_y=[]       
             data_diagramme_be=[]            
             for key in behaviour:
-                if "alpha="+str(alpha) in key and "alpha_p="+str(alpha_p) in key and "beta="+str(beta) in key:
+                if "alpha="+str(alpha) in key and "alpha_p="+str(alpha_p) in key and "w="+str(w) in key:
                     beta_p=float(re.findall(r'beta_p=(\d+\.\d+)_',key)[0])
-                    w=float(re.findall(r'w=(\d+\.\d+)',key)[0])
+                    beta=float(re.findall(r'beta=(\d+\.\d+)_',key)[0])
                     data_diagramme_x.append(beta_p)
-                    data_diagramme_y.append(w)
-                    if behaviour[key]=="div":
-                        data_diagramme_be.append(0) 
-                    elif behaviour[key]=="div_exp":
-                        data_diagramme_be.append(1) 
-                    elif behaviour[key]=="conv_eq":
-                        data_diagramme_be.append(2)
-                    elif behaviour[key]=="conv_infl":
-                        data_diagramme_be.append(3)
+                    data_diagramme_y.append(beta)
+                    data_diagramme_be.append(behaviour[key]) 
             nb_be=len(set(data_diagramme_be))
-            Plot_StabilityDiagramm(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,beta,nb_be)
+            
+            Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w)
+            Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be)
 
 
 #%% GIF
@@ -273,22 +314,25 @@ from os.path import isfile, join
 file=directoire+"/"
 filenames = [f for f in listdir(file) if isfile(join(file, f))]
 filenames.remove('.DS_Store')
-#filenames.remove("5ValeursAlphaAlpha_p.gif")
-#filenames.remove("5ValeursAlphaBeta.gif")
-#filenames.remove('5ValeursAlpha_pBeta.gif')
-#filenames.remove('5ValeursAlphaBeta_p.gif')
-#filenames.remove('5ValeursAlphaW.gif')
-#filenames.remove('5ValeursAlpha_pW.gif')
-#filenames.remove('5ValeursAlpha_pBeta_p.gif')
+filenames.remove('5ValuesBehaviourEquilibrium.csv')
+filenames.remove('5ValuesBehaviourPerturbedEq.csv')
+filenames.remove("5ValeursAlphaAlpha_p.gif")
+filenames.remove("5ValeursAlphaBeta.gif")
+filenames.remove('5ValeursAlpha_pBeta.gif')
+filenames.remove('5ValeursAlphaBeta_p.gif')
+filenames.remove('5ValeursAlphaW.gif')
+filenames.remove('5ValeursAlpha_pW.gif')
+filenames.remove('5ValeursAlpha_pBeta_p.gif')
 #filenames.remove('5ValeursBetaBeta_p.gif')
-#filenames.remove('5ValeursBetaW.gif')
+filenames.remove('5ValeursBeta_pW.gif')
+filenames.remove('5ValeursBetaW.gif')
 filenames.sort()            
 import imageio
 images = []
 
 for filename in filenames:
     images.append(imageio.imread(file+filename))
-imageio.mimsave(file+'5ValeursBeta_pW.gif', images, duration=1)
+imageio.mimsave(file+'5ValeursBetaBeta.gif', images, duration=1)
 
 #%% 
 
@@ -306,6 +350,8 @@ sum_param["conv_infl"]=[]
 for key in behaviour:
     somme=sum([float(i) for i in re.findall(r'=(\d+\.\d+)',key)])
     sum_param[behaviour[key]].append(somme)
+    
+#%%
 
 ## Stats des
 import statistics as stats
@@ -321,4 +367,77 @@ for i in sum_param:
     prob=[j for j in range(len(sum_param[i]))]
     ax2.plot(sorted(sum_param[i]), prob)
     
-#%% 
+#%% Type de convergence en fonction de chaque paramètre
+    
+## Initialisation
+alpha=[]
+beta=[]
+alpha_p=[]
+beta_p=[]
+w=[]
+sum_param_list=[]
+be=[]
+for key in behaviour:
+    alpha.append(float(re.findall(r'alpha=(\d+\.\d+)_',key)[0]))
+    beta.append(float(re.findall(r'beta=(\d+\.\d+)_',key)[0]))
+    alpha_p.append(float(re.findall(r'alpha_p=(\d+\.\d+)_',key)[0]))
+    beta_p.append(float(re.findall(r'beta_p=(\d+\.\d+)_',key)[0]))
+    w.append(float(re.findall(r'w=(\d+\.\d+)',key)[0]))
+    sum_param_list.append(sum([float(i) for i in re.findall(r'=(\d+\.\d+)',key)]))
+    if behaviour[key]=="div":
+        be.append(0) 
+    elif behaviour[key]=="div_exp":
+        be.append(1) 
+    elif behaviour[key]=="conv_eq":
+        be.append(2)
+    elif behaviour[key]=="conv_infl":
+        be.append(3)
+    
+    
+    
+# Alpha
+fig1,ax1=plt.subplots(figsize=(6, 10))
+ax1.set_title("Behaviour of economy: alpha and sum parameters")
+ax1.set_xlabel("alpha")
+ax1.set_ylabel("Sum of Parameters")
+im1=ax1.scatter(alpha,sum_param_list,c=be) 
+fig1.colorbar(im1,ticks=[0,1,2,3])   
+fig1.savefig(directoire+"/Behaviour of economy: alpha and sum parameters.png")
+
+# Alpha_p
+fig1,ax1=plt.subplots(figsize=(6, 10))
+ax1.set_title("Behaviour of economy: alpha_p and sum parameters")
+ax1.set_xlabel("alpha_p")
+ax1.set_ylabel("Sum of Parameters")
+im1=ax1.scatter(alpha_p,sum_param_list,c=be) 
+fig1.colorbar(im1,ticks=[0,1,2,3]) 
+fig1.savefig(directoire+"/Behaviour of economy: alpha_p and sum parameters.png") 
+
+# Beta
+fig1,ax1=plt.subplots(figsize=(6, 10))
+ax1.set_title("Behaviour of economy: beta and sum parameters")
+ax1.set_xlabel("beta")
+ax1.set_ylabel("Sum of Parameters")
+im1=ax1.scatter(beta,sum_param_list,c=be) 
+fig1.colorbar(im1,ticks=[0,1,2,3]) 
+fig1.savefig(directoire+"/Behaviour of economy: beta and sum parameters.png") 
+
+# Beta_p
+fig1,ax1=plt.subplots(figsize=(6, 10))
+ax1.set_title("Behaviour of economy: beta_p and sum parameters")
+ax1.set_xlabel("beta_p")
+ax1.set_ylabel("Sum of Parameters")
+im1=ax1.scatter(beta_p,sum_param_list,c=be) 
+fig1.colorbar(im1,ticks=[0,1,2,3])
+fig1.savefig(directoire+"/Behaviour of economy: beta_p and sum parameters.png")  
+
+# W
+fig1,ax1=plt.subplots(figsize=(6, 10))
+ax1.set_title("Behaviour of economy: w and sum parameters")
+ax1.set_xlabel("w")
+ax1.set_ylabel("Sum of Parameters")
+im1=ax1.scatter(w,sum_param_list,c=be) 
+fig1.colorbar(im1,ticks=[0,1,2,3]) 
+fig1.savefig(directoire+"/Behaviour of economy: w and sum parameters.png")  
+#%% Stats des
+
