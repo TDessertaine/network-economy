@@ -1,18 +1,21 @@
-import numba
+#import numba
 import numpy as np
 
-from exception import *
 
-spec = [
-    ('z', numba.float32[:]),
-    ('sigma', numba.float32[:]),
-    ('alpha', numba.float32),
-    ('alpha_p', numba.float32),
-    ('beta', numba.float32),
-    ('beta_p', numba.float32),
-    ('w', numba.float32)
-]
+# +
+#from exception import *
 
+# +
+#spec = [
+#    ('z', numba.float32[:]),
+#    ('sigma', numba.float32[:]),
+#    ('alpha', numba.float32),
+#    ('alpha_p', numba.float32),
+#    ('beta', numba.float32),
+#    ('beta_p', numba.float32),
+#    ('w', numba.float32)
+#]
+# -
 
 class Firms(object):
     def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, w):

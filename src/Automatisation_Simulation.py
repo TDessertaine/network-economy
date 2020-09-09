@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+# %%
+# #!pip install matplotlib
+# !pip install scipy
 import os,sys
-#sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
-sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
+sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
+#sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
 import numpy as np
 import random
 import re
@@ -19,7 +21,7 @@ import firms
 import household
 
 
-#%%
+# %%
 
 # SIMULATION
 
@@ -82,7 +84,7 @@ def Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b,pert):
 state="nd"
 compteur=5
 
-# %% %% SIMULATION
+# %%%% SIMULATION
 
 def Simulation(**sim_args):
 # Création objet classe Economy
@@ -104,12 +106,12 @@ def Simulation(**sim_args):
     return sim
 
 
-#%%
+# %%
 
 # EQUILIBRIUM
 
 
-#%%  COMPUTE EQUILIBRIUM
+# %% COMPUTE EQUILIBRIUM
 def Compute_Equilibrium(sim):
     sim.eco.compute_eq()
     print("P_EQ", sim.eco.p_eq)
@@ -139,7 +141,7 @@ def Disturb_Equilibrium(p_eq_0, g_eq_0):
     
     return p_eq_dis_0, g_eq_dis_0
 
-#%% CLASSIFY EQUILIBRIUM
+# %% CLASSIFY EQUILIBRIUM
 
 def Classify_p_inf(sim,p_eq_0, threshold=1e-6):
     std_diff=np.std(sim.prices[-101:-1]-sim.prices[-102:-2])
@@ -160,24 +162,24 @@ def Classify_p_inf(sim,p_eq_0, threshold=1e-6):
     return p_inf
 
 
-def Compute_ExpExponent(sim,p_eq_0,t_max=500):
+def Compute_ExpExponent(sim,t_max=500):
 
     return np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),n=1)/np.diff(np.array(range(t_max-100,t_max)))[-1]
 
     
     
- 
-#%% Verification
+
+# %% Verification
         
 sim_args=Variables_Simulation(alpha=0.75,alpha_p=0.75,beta=0.75,beta_p=0.5,w=0.5,q=0,b=1,pert=pert)
 sim=Simulation(**sim_args)
-p_eq_0,g_eq_0=Compute_Equilibrium(sim)
-Plot_PricesEq(sim, p_eq_0)
-Plot_ProductionEq(sim, p_eq_0)
+#p_eq_0,g_eq_0=Compute_Equilibrium(sim)
+#Plot_PricesEq(sim, p_eq_0)
+#Plot_ProductionEq(sim, p_eq_0)
 Classify_p_inf(sim,p_eq_0)
 
-    
-#%% PLOT EQUILIBRIUM ON PRICES 
+
+# %% PLOT EQUILIBRIUM ON PRICES
 
 def Plot_PricesEq(sim, p_eq_0):
     ### Prices
@@ -201,7 +203,7 @@ def Plot_PricesEq(sim, p_eq_0):
     
     #fig.savefig(file)
 
-#%% PLOT EQUILIBRIUM ON PRODUCTION 
+# %% PLOT EQUILIBRIUM ON PRODUCTION
 def Plot_ProductionEq(sim,g_eq_0):
     ### Production
     fig, ax = plt.subplots()
@@ -224,13 +226,15 @@ def Plot_ProductionEq(sim,g_eq_0):
     #file=scenario+"_prods.png" 
     #fig.savefig(file)
 
-#%% SIMULATIONS 
+# %% SIMULATIONS
 
-values=[0.05,0.1,0.25,0.5,0.75]
+values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 q=0
 b=1
 pert=random.uniform(-10**(-5),10**(-5))
-directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
+#directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
+#os.mkdir(directoire)   
+directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
 #os.mkdir(directoire)                
 behaviour={}
 for alpha in values:
@@ -239,24 +243,25 @@ for alpha in values:
             for beta_p in values:
                 for w in values:
                     scenario="alpha="+str(alpha)+"_alpha_p="+str(alpha_p)+"_beta="+str(beta)+"_beta_p="+str(beta_p)+"_w="+str(w)         
+                    print(scenario)
                     sim_args=Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b,pert)
                     sim=Simulation(**sim_args)
-                    p_eq_0,g_eq_0=Compute_Equilibrium(sim)
+                    #p_eq_0,g_eq_0=Compute_Equilibrium(sim)
                     #Plot_PricesEq(sim, p_eq_0)
                     #Plot_ProductionEq(sim, p_eq_0)
                     #behaviour[scenario]=Classify_p_inf(sim,p_eq_0, threshold=1e-6)
-                    behaviour[scenario]=float(Compute_ExpExponent(sim,p_eq_0)[-1])
+                    behaviour[scenario]=float(Compute_ExpExponent(sim)[-1])
 
 
-#%% SAVE DATA
+# %% SAVE DATA
 import pandas as pd
-pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/5ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
+pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/11ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
-#%%  
+# %%
                     
    ### REPRESENTATIONS GRAPHIQUES AVEC CLASSIFY
-             
-#%% tentative de création d'un diagramme de stabilité 
+
+# %% tentative de création d'un diagramme de stabilité
 
 def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be):
     title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
@@ -266,7 +271,7 @@ def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be
     ax.set_xlabel("beta_p")
     ax.set_ylabel("beta")
     im=ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be) 
-    fig.colorbar(im,ticks=[0,1,2,3])   
+   # fig.colorbar(im,ticks=[0,1,2,3])   pour classification 
     fig.savefig(directoire+"/"+title+".png")
 
 def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,values=values):
@@ -278,10 +283,11 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
     for i in range(len(values)):
         for j in range(len(values)):
             data_slope[coordonnees[data_diagramme_x[i+j]],coordonnees[data_diagramme_x[i+j]]]=data_diagramme_be[i+j]
-        
+    print(data_slope)
     title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
     fig, ax = plt.subplots()
-    ax.pcolor(data_slope) 
+    im=ax.pcolor(data_slope) 
+    fig.colorbar(im,ax=ax) 
     ax.set_title(title)
     ax.set_xlabel("beta_p")
     ax.set_ylabel("beta")   
@@ -308,7 +314,7 @@ for alpha in values:
             Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be)
 
 
-#%% GIF
+# %% GIF
 from os import listdir
 from os.path import isfile, join
 file=directoire+"/"
@@ -334,11 +340,11 @@ for filename in filenames:
     images.append(imageio.imread(file+filename))
 imageio.mimsave(file+'5ValeursBetaBeta.gif', images, duration=1)
 
-#%% 
+# %%
 
     ### STATS DES
 
-#%% Type de convergence en fonction de la somme des paramètres 
+# %% Type de convergence en fonction de la somme des paramètres
 
 ## Dictionnaire
 sum_param={}
@@ -350,8 +356,8 @@ sum_param["conv_infl"]=[]
 for key in behaviour:
     somme=sum([float(i) for i in re.findall(r'=(\d+\.\d+)',key)])
     sum_param[behaviour[key]].append(somme)
-    
-#%%
+
+# %%
 
 ## Stats des
 import statistics as stats
@@ -366,8 +372,8 @@ for i in sum_param:
     ax2.set_title(i+"_Distribution")
     prob=[j for j in range(len(sum_param[i]))]
     ax2.plot(sorted(sum_param[i]), prob)
-    
-#%% Type de convergence en fonction de chaque paramètre
+
+# %% Type de convergence en fonction de chaque paramètre
     
 ## Initialisation
 alpha=[]
@@ -439,5 +445,5 @@ ax1.set_ylabel("Sum of Parameters")
 im1=ax1.scatter(w,sum_param_list,c=be) 
 fig1.colorbar(im1,ticks=[0,1,2,3]) 
 fig1.savefig(directoire+"/Behaviour of economy: w and sum parameters.png")  
-#%% Stats des
+# %% Stats des
 

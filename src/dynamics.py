@@ -1,5 +1,5 @@
 import warnings
-from numba import jit
+#from numba import jit
 
 
 # warnings.simplefilter("ignore")
@@ -202,13 +202,11 @@ class Dynamics(object):
         #print(fix)
         self.Q_demand[1, :, 1] = self.eco.firms.compute_demands_firms(**fix)
                                                                     
-        print("DYNAMICS BEFORE LOOP T MINUS, check REAL ", self.Q_real[1])
-        print("DYNAMICS BEFORE LOOP T MINUS, check DEMAND ", self.Q_demand[1])
+     
         self.time_t(1)
-        print("DYNAMICS BEFORE LOOP T, check REAL ", self.Q_real[1])
+   
         self.time_t_plus(1)
-        print("DYNAMICS BEFORE LOOP T PLUS, check REAL ", self.Q_real[1])
-        print("DYNAMICS BEFORE LOOP T PLUS, check DEMAND ", self.Q_demand[1])
+  
         t = 2
         while t < self.t_max:
             # print(t)
