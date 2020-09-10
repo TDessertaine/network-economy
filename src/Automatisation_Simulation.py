@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # %%
-# #!pip install matplotlib
-# !pip install scipy
 import os,sys
 sys.path.append('/mnt/research-live/user/cboissel/network-economy/src/')
 #sys.path.append('/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/network-economy/src')
 import numpy as np
 import random
 import re
+import pandas as pd
 
 import matplotlib as mpl
 #mpl.use('Qt5Agg')
@@ -20,10 +19,6 @@ from economy import Economy as eco
 import firms 
 import household
 
-
-# %%
-
-# SIMULATION
 
 # %% CREATION ECONOMIE
 
@@ -170,14 +165,14 @@ def Compute_ExpExponent(sim,t_max=500):
     
 
 # %% Verification
+pert=random.uniform(-10**(-5),10**(-5))
         
-sim_args=Variables_Simulation(alpha=0.75,alpha_p=0.75,beta=0.75,beta_p=0.5,w=0.5,q=0,b=1,pert=pert)
-sim=Simulation(**sim_args)
+# %time sim_args=Variables_Simulation(alpha=0.75,alpha_p=0.75,beta=0.75,beta_p=0.5,w=0.5,q=0,b=1,pert=pert)
+# %time sim=Simulation(**sim_args)
 #p_eq_0,g_eq_0=Compute_Equilibrium(sim)
 #Plot_PricesEq(sim, p_eq_0)
 #Plot_ProductionEq(sim, p_eq_0)
-Classify_p_inf(sim,p_eq_0)
-
+# %time Compute_ExpExponent(sim)
 
 # %% PLOT EQUILIBRIUM ON PRICES
 
@@ -254,14 +249,25 @@ for alpha in values:
 
 
 # %% SAVE DATA
-import pandas as pd
 pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/11ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
 # %%
-                    
-   ### REPRESENTATIONS GRAPHIQUES AVEC CLASSIFY
+import pandas as pd
+directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(1)+"_q="+str(0)
+data=pd.read_csv(directoire+'/11ValuesExponentsPerturbedEq.csv')
+
+behaviour={'alpha=0_alpha_p=0_beta=0_beta_p=0_w=0':0.0}
+for i in range(len(data)):
+    behaviour[data.iat[i,0]]=data.iat[i,1]
+
+# %%
+behaviour
+
+# %%
+### REPRESENTATIONS GRAPHIQUES AVEC CLASSIFY
 
 # %% tentative de création d'un diagramme de stabilité
+values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 
 def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be):
     title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
@@ -271,7 +277,7 @@ def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be
     ax.set_xlabel("beta_p")
     ax.set_ylabel("beta")
     im=ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be) 
-   # fig.colorbar(im,ticks=[0,1,2,3])   pour classification 
+    fig.colorbar(im,ax=ax)   # pour classification 
     fig.savefig(directoire+"/"+title+".png")
 
 def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,values=values):
@@ -280,14 +286,13 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
         coordonnees[values[i]]=i
         
     data_slope=np.zeros((len(values),len(values)))
-    for i in range(len(values)):
-        for j in range(len(values)):
-            data_slope[coordonnees[data_diagramme_x[i+j]],coordonnees[data_diagramme_x[i+j]]]=data_diagramme_be[i+j]
-    print(data_slope)
+    for i in range(len(values)**2):
+        data_slope[coordonnees[data_diagramme_y[i]],coordonnees[data_diagramme_x[i]]]=data_diagramme_be[i]
+
     title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
     fig, ax = plt.subplots()
     im=ax.pcolor(data_slope) 
-    fig.colorbar(im,ax=ax) 
+    fig.colorbar(im,ax=ax)
     ax.set_title(title)
     ax.set_xlabel("beta_p")
     ax.set_ylabel("beta")   
@@ -302,16 +307,36 @@ for alpha in values:
             data_diagramme_y=[]       
             data_diagramme_be=[]            
             for key in behaviour:
-                if "alpha="+str(alpha) in key and "alpha_p="+str(alpha_p) in key and "w="+str(w) in key:
-                    beta_p=float(re.findall(r'beta_p=(\d+\.\d+)_',key)[0])
-                    beta=float(re.findall(r'beta=(\d+\.\d+)_',key)[0])
+                if "alpha="+str(alpha)+"_" in key and "alpha_p="+str(alpha_p)+"_" in key and re.search("w="+str(w)+"$", key):
+                    beta_p=float(re.findall(r'beta_p=(\d+\.?\d*)_',key)[0])
+                    beta=float(re.findall(r'beta=(\d+\.?\d*)_',key)[0])
                     data_diagramme_x.append(beta_p)
                     data_diagramme_y.append(beta)
                     data_diagramme_be.append(behaviour[key]) 
             nb_be=len(set(data_diagramme_be))
-            
             Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w)
             Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be)
+
+
+# %%
+Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w)
+Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,nb_be)
+
+coordonnees={}
+for i in range(len(values)):
+    coordonnees[values[i]]=i
+
+data_slope=np.zeros((len(values),len(values)))
+test=[]
+for i in range(len(values)**2):
+        data_slope[coordonnees[data_diagramme_x[i]],coordonnees[data_diagramme_y[i]]]=data_diagramme_be[i]
+        test.append(data_diagramme_be[i])
+        print(i)
+
+np.reshape(data_diagramme_be,(len(values),len(values)))
+sorted(test)==sorted(data_diagramme_be)
+
+
 
 
 # %% GIF
