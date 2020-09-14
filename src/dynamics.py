@@ -1,5 +1,4 @@
 import warnings
-from numba import jit
 
 
 # warnings.simplefilter("ignore")
@@ -220,7 +219,6 @@ class Dynamics(object):
         self.budget_res = B0 / w0
 
     @staticmethod
-    @jit
     def compute_prods(e, Q_real, tmax, n, g0):
         prods = np.zeros((tmax + 1, n))
         prods[1] = g0
@@ -229,7 +227,6 @@ class Dynamics(object):
         return prods
 
     @staticmethod
-    @jit
     def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
         supply_goods = e.firms.z * prods + stocks
         demand = np.sum(Q_demand, axis=1)
@@ -245,7 +242,6 @@ class Dynamics(object):
         return profits, balance, cashflow, tradeflow
 
     @staticmethod
-    @jit
     def compute_utility(e, Q_real, tmax):
         utility = np.zeros(tmax + 1)
         for t in range(1, tmax):
@@ -253,6 +249,5 @@ class Dynamics(object):
         return utility
 
     @staticmethod
-    @jit
     def compute_targets(e, Q_demand, prices, tmax, n):
         targets = np.zeros((tmax + 1, n))

@@ -1,4 +1,3 @@
-import numba
 import numpy as np
 from scipy.optimize import fsolve
 
@@ -57,7 +56,6 @@ class Household(object):
         return mu, self.theta / (mu * prices), np.power(mu * rat, 1. / self.phi) / self.v_phi
 
     @staticmethod
-    @numba.jit
     def budget_constraint(budget, prices, offered_cons):
         b_vs_c = np.clip(budget / np.dot(offered_cons, prices), None, 1)
         cons_real = offered_cons * b_vs_c
