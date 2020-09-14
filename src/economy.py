@@ -11,8 +11,8 @@ import warnings
 import numpy as np
 import pandas as pd
 from numpy.linalg import lstsq
-#from scipy.optimize import anderson
-#from scipy.optimize import fsolve
+from scipy.optimize import anderson
+from scipy.optimize import fsolve
 
 from firms import Firms
 from household import Household
