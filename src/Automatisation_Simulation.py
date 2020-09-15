@@ -228,6 +228,7 @@ def Plot_ProductionEq(sim,g_eq_0):
 
 # %% SIMULATIONS
 values=[i/20 for i in range(21)]
+values_alpha=[i/20 for i in range(4,21)]
 q=0
 b=1
 pert=random.uniform(-10**(-5),10**(-5))
@@ -236,7 +237,7 @@ pert=random.uniform(-10**(-5),10**(-5))
 directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
 #os.mkdir(directoire)                
 behaviour={}
-for alpha in values:
+for alpha in values_alpha:
     for alpha_p in values:
         for beta in values:
             for beta_p in values:
@@ -250,28 +251,34 @@ for alpha in values:
                     #Plot_ProductionEq(sim, p_eq_0)
                     #behaviour[scenario]=Classify_p_inf(sim,p_eq_0, threshold=1e-6)
                     behaviour[scenario]=float(Compute_ExpExponent(sim)[-1])
-pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/21ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
+pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/2_1ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
+
+# %%
+values_alpha=[i/20 for i in range(4,21)]
+print(values_alpha)
 
 # %% SAVE DATA
-pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/11ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
+pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/2_1ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
 # %%
 import pandas as pd
 directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(1)+"_q="+str(0)
 data=pd.read_csv(directoire+'/2ValuesExponentsPerturbedEq.csv')
 
-behaviour={'alpha=0_alpha_p=0_beta=0_beta_p=0_w=0':0.0}
+behaviour={'alpha=0.0_alpha_p=0.0_beta=0.0_beta_p=0.0_w=0.0':0.0}
 for i in range(len(data)):
     behaviour[data.iat[i,0]]=data.iat[i,1]
 
 # %%
 ### REPRESENTATIONS GRAPHIQUES AVEC CLASSIFY
+print(behaviour['alpha=0.0_alpha_p=0.0_beta=0.0_beta_p=0.0_w=0.05'])
 
 # %% tentative de création d'un diagramme de stabilité
-import imageio
-values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
-
+#values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+values=[i/20 for i in range(21)]
+q=0
+b=1
 def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,title,nb_be):
     fig, ax = plt.subplots()
     ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be)  
@@ -302,8 +309,6 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
     fig.savefig(directoire+"/"+title+".png")
     
 
-            
-images = []
 for alpha in values:
     for alpha_p in values:
         for w in values:
@@ -320,7 +325,6 @@ for alpha in values:
             nb_be=len(set(data_diagramme_be))
             title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
             Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title)
-            images.append(imageio.imread(directoire+"/"+title+".png"))
 
 
 # %%
@@ -356,40 +360,64 @@ imageio.mimsave(file+'5ValeursBetaBeta.gif', images, duration=1)
 from matplotlib import pyplot as plt
 from celluloid import Camera
 
-values=[i/20 for i in range(21)]
+values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 q=0
 b=1
-values_ext=values*(21**3)
+values_ext=values*(11**3)
 
-def Stability_Diagram_GIF(i):
-                    
-    alpha=values_ext[int(i/(21**2))]
-    alpha_p=values_ext[int(i/(21))]
+def Stability_Diagram_GIF(i):          
+    alpha=values_ext[int(i/(11**2))]
+    alpha_p=values_ext[int(i/(11))]
     w=values_ext[i]
+
     data_diagramme_x=[]
     data_diagramme_y=[]       
     data_diagramme_be=[]            
     for key in behaviour:
         if "alpha="+str(alpha)+"_" in key and "alpha_p="+str(alpha_p)+"_" in key and re.search("w="+str(w)+"$", key):
-            beta_p=float(re.findall(r'beta_p=(\d+\.\d+)_',key)[0])
-            beta=float(re.findall(r'beta=(\d+\.\d+)_',key)[0])
+            beta_p=float(re.findall(r'beta=(\d+\.?\d*)_',key)[0])
+            beta=float(re.findall(r'beta_p=(\d+\.?\d*)_',key)[0])
             data_diagramme_x.append(beta_p)
             data_diagramme_y.append(beta)
             data_diagramme_be.append(behaviour[key]) 
-   
+    
     coordonnees={}
     for i in range(len(values)):
         coordonnees[values[i]]=i
        
-        
     data_slope=np.zeros((len(values),len(values)))
-    for k in range((len(values))**2):
-        data_slope[coordonnees[data_diagramme_y[k]],coordonnees[data_diagramme_x[k]]]=data_diagramme_be[k]
+    for k in range((len(values))**2-1):
+        data_slope[coordonnees[data_diagramme_x[k]],coordonnees[data_diagramme_y[k]]]=data_diagramme_be[k]
         
     title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
     ax.set_title(title)
     return ax.pcolor(data_slope) 
 
+
+fig = plt.figure()
+plt.xlim(0, len(values))
+plt.ylim(0, (len(values)))
+camera = Camera(fig)
+
+ax = plt.axes()
+# set axis limit
+ax.set_ylim(0, len(values))
+ax.set_xlim(0, (len(values)))
+
+for i in range(5):
+    ima=Stability_Diagram_GIF(i)
+    fig.show()
+    camera.snap()
+    print(i/len(range(1,(11**3))))
+    
+animation = camera.animate()
+plt.show()
+animation.save(directoire+'/celluloid_minimal.gif', fps=2)
+
+
+# %%
+for k in range((len(values))**2):
+    print(k)
 
 def Stability_Diagram_GIF_incomplete(alpha,alpha_p,w):        
     data_diagramme_x=[]
@@ -402,39 +430,19 @@ def Stability_Diagram_GIF_incomplete(alpha,alpha_p,w):
             data_diagramme_x.append(beta_p)
             data_diagramme_y.append(beta)
             data_diagramme_be.append(behaviour[key]) 
-   
+    
     coordonnees={}
     for i in range(len(values)):
         coordonnees[values[i]]=i
        
         
     data_slope=np.zeros((len(values),len(values)))
-    for k in range((len(values))**2):
+    for k in range((len(values))**2-1):
         data_slope[coordonnees[data_diagramme_y[k]],coordonnees[data_diagramme_x[k]]]=data_diagramme_be[k]
         
     title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
     ax.set_title(title)
     return ax.pcolor(data_slope) 
-
-fig = plt.figure()
-# load axis box
-ax = plt.axes()
-# set axis limit
-ax.set_ylim(0, len(values))
-ax.set_xlim(0, (len(values)))
-camera = Camera(fig)
-compteur=0
-for alpha in [0.0,0.05,0.1]:
-    for alpha_p in values:
-        for w in values:
-            ima=Stability_Diagram_GIF_incomplete(alpha,alpha_p,w)
-            plt.show()
-            camera.snap()
-            compteur+=1
-            print(compteur/len(range(1,(21**2)*3)))
-    
-animation = camera.animate()
-animation.save(directoire+'/celluloid_minimal.gif',writer='pillow', fps=2)
 
 
 # %%
@@ -579,5 +587,3 @@ ax1.set_ylabel("Sum of Parameters")
 im1=ax1.scatter(w,sum_param_list,c=be) 
 fig1.colorbar(im1,ticks=[0,1,2,3]) 
 fig1.savefig(directoire+"/Behaviour of economy: w and sum parameters.png")  
-# %% Stats des
-
