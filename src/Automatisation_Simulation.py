@@ -15,6 +15,7 @@ from os.path import isfile, join
 import matplotlib as mpl
 #mpl.use('Qt5Agg')
 import matplotlib.pyplot as plt
+from matplotlib import colors
 import matplotlib.animation as animation
 
 from dynamics import Dynamics as dyn
@@ -227,21 +228,23 @@ def Plot_ProductionEq(sim,g_eq_0):
     #fig.savefig(file)
 
 # %% SIMULATIONS
-values=[i/20 for i in range(21)]
-values_alpha=[i/20 for i in range(4,21)]
+values=[i/100 for i in range(101)]
+values_alpha=[0.75]
+values_alpha_p=[0.1]
+values_w=[0.5]
 q=0
 b=1
 pert=random.uniform(-10**(-5),10**(-5))
 #directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
 #os.mkdir(directoire)   
-directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
+#directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q) 
 #os.mkdir(directoire)                
 behaviour={}
 for alpha in values_alpha:
-    for alpha_p in values:
-        for beta in values:
-            for beta_p in values:
-                for w in values:
+    for alpha_p in values_alpha_p:
+        for w in values_w:
+            for beta in values:
+                for beta_p in values:
                     scenario="alpha="+str(alpha)+"_alpha_p="+str(alpha_p)+"_beta="+str(beta)+"_beta_p="+str(beta_p)+"_w="+str(w)         
                     print(scenario)
                     sim_args=Variables_Simulation(alpha,alpha_p,beta,beta_p,w,q,b,pert)
@@ -251,7 +254,7 @@ for alpha in values_alpha:
                     #Plot_ProductionEq(sim, p_eq_0)
                     #behaviour[scenario]=Classify_p_inf(sim,p_eq_0, threshold=1e-6)
                     behaviour[scenario]=float(Compute_ExpExponent(sim)[-1])
-pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/2_1ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
+#pd.DataFrame.from_dict(behaviour, orient="index").to_csv(directoire+'/2_1ValuesExponentsPerturbedEq.csv', header=False, index=range(len(behaviour)))
 
 
 # %%
@@ -276,9 +279,10 @@ print(behaviour['alpha=0.0_alpha_p=0.0_beta=0.0_beta_p=0.0_w=0.05'])
 
 # %% tentative de création d'un diagramme de stabilité
 #values=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
-values=[i/20 for i in range(21)]
+values=[i/100 for i in range(101)]
 q=0
 b=1
+directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneFirmCase_Images_v1/2020_09_04_Scenarii_b=1_q=0"
 def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be,title,nb_be):
     fig, ax = plt.subplots()
     ax.scatter(data_diagramme_x,data_diagramme_y,c=data_diagramme_be)  
@@ -291,7 +295,7 @@ def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be
     #fig.savefig(directoire+"/"+title+".png")
 
 
-def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title, values=values):
+def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title,nb_be, values=values):
     coordonnees={}
     for i in range(len(values)):
         coordonnees[values[i]]=i
@@ -301,7 +305,7 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
         data_slope[coordonnees[data_diagramme_y[i]],coordonnees[data_diagramme_x[i]]]=data_diagramme_be[i]
 
     fig, ax = plt.subplots()
-    im=ax.pcolor(data_slope) 
+    im=ax.pcolor(data_slope, cmap='RdBu_r', norm=colors.SymLogNorm(linthresh=1e-9, linscale=1, vmin=min(data_diagramme_be), vmax=max(data_diagramme_be)))
     fig.colorbar(im,ax=ax)
     ax.set_title(title)
     ax.set_xlabel("beta_p")
@@ -309,9 +313,9 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
     fig.savefig(directoire+"/"+title+".png")
     
 
-for alpha in values:
-    for alpha_p in values:
-        for w in values:
+for alpha in values_alpha:
+    for alpha_p in values_alpha_p:
+        for w in values_w:
             data_diagramme_x=[]
             data_diagramme_y=[]       
             data_diagramme_be=[]            
@@ -324,7 +328,7 @@ for alpha in values:
                     data_diagramme_be.append(behaviour[key]) 
             nb_be=len(set(data_diagramme_be))
             title="Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
-            Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title)
+            Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title,nb_be,values)
 
 
 # %%
