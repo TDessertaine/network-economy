@@ -305,7 +305,9 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
         data_slope[coordonnees[data_diagramme_y[i]],coordonnees[data_diagramme_x[i]]]=data_diagramme_be[i]
 
     fig, ax = plt.subplots()
-    im=ax.pcolor(data_slope, cmap='RdBu_r', norm=colors.SymLogNorm(linthresh=1e-9, linscale=1, vmin=min(data_diagramme_be), vmax=max(data_diagramme_be)))
+    y, x = np.mgrid[0:101,0:101]/100
+    print(x,y)
+    im=ax.pcolor(x,y,data_slope, cmap='RdBu_r', norm=colors.SymLogNorm(linthresh=1e-9, linscale=1, vmin=min(data_diagramme_be), vmax=max(data_diagramme_be)))
     fig.colorbar(im,ax=ax)
     ax.set_title(title)
     ax.set_xlabel("beta_p")
