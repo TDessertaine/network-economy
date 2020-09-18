@@ -314,7 +314,7 @@ class Economy:
             if self.q == 0:
                 self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
-            else:
+            elif self.q>0 and self.q != np.inf:
                 self.u=[]
                 initial_guess_u_1=0
                 initial_guess_u_2=((self.firms.z**(self.zeta))/(self.lamb_a[1]))**(1/(self.coefficient-1))
@@ -339,20 +339,18 @@ class Economy:
                     self.p_eq.append((fsolve(func=non_linear_eq_b_q_finites_2, x0=initial_guess_v, fprime=non_linear_eq_b_q_finites_2_prime, xtol=10**(100*(1/(1-self.coefficient)))))**(1/(1-self.coefficient)))
     
                 self.g_eq=[((self.lamb_a[0]*(self.firms.z**(-self.zeta))*(p**(-self.zeta))+(self.firms.z**(-self.zeta))*self.lamb_a[1])**(1/(1-self.coefficient))) for p in self.p_eq]
+            
+            elif self.q == np.inf:
+                print("Infinite number of equilibria")
+                
         else:
             if self.q == 0:
                 self.p_eq = self.j0/(self.firms.z-self.j1)
                 self.g_eq = self.house.kappa/self.j0
-            else:
-                self.p_eq=[]
-                self.g_eq=[]
-                initial_guess_peq_1=self.firms.z**(self.q+1)+self.lamb_a[1]+self.lamb_a[0]
-                initial_guess_peq_2=0
-                self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_1))
-                self.p_eq.append(fsolve(self.non_linear_eq_b1_qnonzero,initial_guess_peq_2))
-                self.g_eq.append((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q * self.zeta)*self.p_eq[0])))   
-                self.g_eq.append((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta)*self.p_eq[1])))
-
-
+            elif self.q>0 and self.q != np.inf:
+                self.p_eq= ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.q+1)
+                self.g_eq= ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.q+1)
+            elif self.q == np.inf:
+                print("Infinite number of equilibria")
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
         self.b_eq = self.house.thetabar / self.mu_eq
