@@ -205,10 +205,12 @@ def Plot_ProductionEq(sim,g_eq_0):
 def Classify_p_inf(sim,p_eq_0, threshold=1e-6):
     std_diff=np.std(sim.prices[-101:-1]-sim.prices[-102:-2])
     if std_diff<=threshold:
-        if np.abs(sim.prices[-10]-p_eq_0)<=threshold:
+        if np.abs(sim.prices[-10]*(sim.Q_real[-10][1,0])-sim.Q_real[-10][0,1])<=threshold:
+            
             p_inf="conv_eq"
             
         else:
+            print(sim.prices[-10]*(sim.Q_real[-10][1,0])-sim.Q_real[-10][0,1])
             p_inf="conv_infl"
             
     
@@ -246,7 +248,7 @@ def Plot_StabilityDiagrammBe(data_diagramme_x,data_diagramme_y,data_diagramme_be
     fig.colorbar(im,ax=ax)   # pour classification 
     fig.savefig(directoire+"/"+title+".png")
 
-def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,alpha,alpha_p,w,values):
+def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_be,title,nb_be, values=values):
     coordonnees={}
     for i in range(len(values)):
         coordonnees[values[i]]=i
@@ -255,14 +257,16 @@ def Plot_StabilityDiagrammExp(data_diagramme_x,data_diagramme_y,data_diagramme_b
     for i in range(len(values)**2):
         data_slope[coordonnees[data_diagramme_y[i]],coordonnees[data_diagramme_x[i]]]=data_diagramme_be[i]
 
-    title= "Stability Diagram. \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w) 
     fig, ax = plt.subplots()
-    im=ax.pcolor(data_slope) 
-    fig.colorbar(im,ax=ax)
+    y, x = np.mgrid[0:11,0:11]/10
+    im=ax.pcolor(x,y,data_slope, cmap='RdBu_r', norm=colors.SymLogNorm(linthresh=1e-9, linscale=1))
+    cbar=fig.colorbar(im,ax=ax)
+    cbar.ax.set_title("k")
     ax.set_title(title)
-    ax.set_xlabel("beta_p")
-    ax.set_ylabel("beta")   
-    #fig.savefig(directoire+"/"+title+".png")
+    ax.set_xlabel("alpha_p")
+    ax.set_ylabel("beta_p")   
+    fig.show()
+    fig.savefig(directoire+"/"+title+".png")
 
             
 
