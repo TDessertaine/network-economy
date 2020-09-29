@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# %%
 """
 Created on Tue Sep 29 02:22:16 2020
 
@@ -59,7 +60,7 @@ def compute_exp_exponent(sim, t_max=500):
     return np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))[-1]
 
-#%%  
+# %%
 def rolling_diff(sim, threshold=1e-6):
     """
     Function used for classifying the long-term behaviour of the prices in  a
@@ -95,9 +96,13 @@ def comparison(sim_1, var_sim_1, t_max):
     diff_simus = sim_2.prices[-101:-1]-sim.prices[-101:-1]
     df_diff_simus = pd.DataFrame(diff_simus)
     if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0]:
-        np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
-                   n=1)/np.diff(np.array(range(t_max-100, t_max)))[-1]
-    return sim_1
+        exponents = np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1]-sim_1.prices[-2])]),
+                   n=1)/np.diff(np.array(range(t_max-100, t_max)))
+        return exponents[-2]
+    else:
+        exponents = np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
+                   n=1)/np.diff(np.array(range(t_max-100, t_max)))
+        return exponents[-2]    
 
 # %%
 ### Plot Stability Diagrams (colormap & scatterplot)
@@ -180,4 +185,6 @@ def serialization_stabilitydiagrams(i, values, behaviour, directoire):
     nb_be = len(set(data_diagramme_be))
     title = "Stability Diagram. Types of behaviour:"+str(nb_be)+". \n alpha="+str(alpha)+"_"+"alpha_p="+str(alpha_p)+"_"+"w="+str(w)
     plot_stabilitydiagramm_exp(data_diagramme_x, data_diagramme_y, data_diagramme_be, title, values, directoire)
-    
+
+
+# %%
