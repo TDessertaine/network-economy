@@ -95,11 +95,12 @@ def comparison(sim_1, t_max):
     sim_2 = simulations.simulation(**sim_2_args)
     
     diff_simus = sim_2.prices[-101:-1]-sim_1.prices[-101:-1]
+    print("diff_simus", diff_simus)
     df_diff_simus = pd.DataFrame(diff_simus)
-    if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0]:
+    if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0] and rolling_diff(sim_1, threshold=1e-6):
         exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1]/sim_1.prices[-2])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
-        print(exponents)
+        print("conv exp", exponents)
         return exponents[-2]
     else:
         sim_3_args = simulations.variables_simulation(0, 
@@ -112,7 +113,7 @@ def comparison(sim_1, t_max):
         sim_3 = simulations.simulation(**sim_2_args)
         exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1]/sim_3.prices[-2])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
-        print(exponents)
+        print("div exp", exponents)
         return exponents[-2]    
 
 # %%
