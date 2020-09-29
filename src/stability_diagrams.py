@@ -93,14 +93,21 @@ def comparison(sim_1, var_sim_1, t_max):
                                      pert=rd.uniform(-1e-6,1e-6))
     sim_2 = simulations.simulation(**sim_2_args)
     
-    diff_simus = sim_2.prices[-101:-1]-sim.prices[-101:-1]
+    diff_simus = sim_2.prices[-101:-1]-sim_1.prices[-101:-1]
     df_diff_simus = pd.DataFrame(diff_simus)
     if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0]:
-        exponents = np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1]-sim_1.prices[-2])]),
+        exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1]-sim_1.prices[-2])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
         return exponents[-2]
     else:
-        exponents = np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
+        sim_3_args = simulations.variables_simulation(0, 
+                                     sim_1.eco.firms.alpha_p, 
+                                     sim_1.eco.firms.beta, 
+                                     sim_1.eco.firms.beta_p, 
+                                     sim_1.eco.firms.w, 
+                                     sim_1.eco.q, sim_1.eco.b, 
+                                     pert=rd.uniform(-1e-6,1e-6))
+        exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
         return exponents[-2]    
 
