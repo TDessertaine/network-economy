@@ -13,12 +13,13 @@ Functions needed to set up stability diagrams:
 """
 
 # %%
-import random
+import random as rd 
 import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import simulations
 
 # %%
 ### Classify Equilibrium
@@ -73,7 +74,7 @@ def rolling_diff(sim, threshold=1e-6):
     df_t_diff = pd.DataFrame(t_diff[::-1])
     return df_t_diff.apply(lambda x: x.is_monotonic_decreasing)[0]
     
-def comparison(sim_1,sim_2):
+def comparison(sim_1, var_sim_1, t_max):
     """
     Function used for classifying the long-term behaviour of the prices in  a
     single simulation: comparing two simulations version.
@@ -82,8 +83,21 @@ def comparison(sim_1,sim_2):
     :param threshold: float, threshold for the function's precision
     :return: string, prices' behaviour
     """
+    sim_2_args = simulations.variables_simulation(sim_1.eco.firms.alpha, 
+                                     sim_1.eco.firms.alpha_p, 
+                                     sim_1.eco.firms.beta, 
+                                     sim_1.eco.firms.beta_p, 
+                                     sim_1.eco.firms.w, 
+                                     sim_1.eco.q, sim_1.eco.b, 
+                                     pert=rd.uniform(-1e-6,1e-6))
+    sim_2 = simulations.simulation(**sim_2_args)
+    
+    diff_simus = sim_2.prices[-101:-1]-sim.prices[-101:-1]
+    df_diff_simus = pd.DataFrame(diff_simus)
+    if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0]:
+        np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
+                   n=1)/np.diff(np.array(range(t_max-100, t_max)))[-1]
     return sim_1
-
 
 # %%
 ### Plot Stability Diagrams (colormap & scatterplot)
