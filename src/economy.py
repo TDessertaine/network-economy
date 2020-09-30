@@ -39,13 +39,16 @@ class Economy:
             raise ValueError("x must be of even length")
 
         # pylint: disable=unbalanced-tuple-unpacking
+        # changements de variable: u = p_eq ; w = ((g_eq)**x) * (z**(q*zeta)) * p_eq
         u, w = np.split(x, 2)
-        z_zeta, v, m_cal, q, exponent, kappa = p
-        w_over_uq_p = np.power(np.divide(w, np.power(z_zeta, q) * np.power(u, q)), exponent)
-        v1 = np.multiply(z_zeta, np.multiply(u, 1 - w_over_uq_p))
-        m1 = np.dot(m_cal, u)
-        m2 = u * np.dot(m_cal.T, w) - w * m1
-        return np.concatenate((m1 - v1 - v, m2 + w * v - kappa))
+        print(u,w)
+        z_zeta, zeta, v, m_cal, q, exponent, kappa = p
+        w_over_uq_p = (w /((z_zeta**q) * u))**exponent
+        v1 = z_zeta * (u**zeta) * (1 - w_over_uq_p)
+        m1 = m_cal * (u**zeta)
+        v2 = z_zeta * w * (1 - w_over_uq_p)
+        m2 = m_cal * w 
+        return np.array([m1 - v1 - v, m2 - v2 - kappa])
 
     @staticmethod
     def non_linear_eq_qzero(x, *par):
@@ -315,33 +318,30 @@ class Economy:
                 self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
             elif self.q>0 and self.q != np.inf:
-                self.u=[]
-                initial_guess_u_1=0
-                initial_guess_u_2=((self.firms.z**(self.zeta))/(self.lamb_a[1]))**(1/(self.coefficient-1))
-                self.u.append(fsolve(func=self.non_linear_eq_b_q_finites_1,x0=initial_guess_u_1, fprime=self.non_linear_eq_b_q_finites_1_prime, xtol=10**(100*(1/(1-self.coefficient)))))
-                self.u.append(fsolve(func=self.non_linear_eq_b_q_finites_1,x0=initial_guess_u_2, fprime=self.non_linear_eq_b_q_finites_1_prime, xtol=10**(100*(1/(1-self.coefficient)))))
-                
-                self.p_eq=[]
-                
-                lamb_a_0=self.lamb_a[0]
-                lamb_a_1=self.lamb_a[1]
-                z=self.firms.z
-                zeta=self.zeta
-                b=self.b
-                coefficient=self.coefficient
-                
-                initial_guess_v=0
-                for term in self.u:
-                    def non_linear_eq_b_q_finites_2(v):
-                        return lamb_a_0*(z**(-zeta))*(v**(1/(1-b)))+v*lamb_a_1*(z**(-zeta))-(term**(1-coefficient))
-                    def non_linear_eq_b_q_finites_2_prime(v):
-                        return lamb_a_0*(z**(-zeta))*(1/(1-b))*(v**(b/(1-b)))+(z**(-zeta))*lamb_a_1
-                    self.p_eq.append((fsolve(func=non_linear_eq_b_q_finites_2, x0=initial_guess_v, fprime=non_linear_eq_b_q_finites_2_prime, xtol=10**(100*(1/(1-self.coefficient)))))**(1/(1-self.coefficient)))
-    
-                self.g_eq=[((self.lamb_a[0]*(self.firms.z**(-self.zeta))*(p**(-self.zeta))+(self.firms.z**(-self.zeta))*self.lamb_a[1])**(1/(1-self.coefficient))) for p in self.p_eq]
-            
+                m_cal=z**(zeta)-lamb_1
+                init_guess_peq_zeta = lamb_0 / m_cal
+                init_guess_w = np.divide(k, init_guess_peq_zeta)/m_cal
+
+                par = (z**zeta,
+                       zeta,
+                       lamb_0,
+                       m_cal,
+                       q,
+                       (b - 1) / (b * q + 1),
+                       k
+                       )
+
+                uw = anderson(lambda x: non_linear_eq_qnonzero(x, *par),
+                              np.array([init_guess_peq_zeta, init_guess_w]),
+                              M=50, f_tol=1e-15)
+
+                # pylint: disable=unbalanced-tuple-unpacking
+                u, w = np.split(uw, 2)
+                p_eq = u
+                g_eq = np.power(np.divide(w, np.power(z, q * zeta) * u),
+                                     b / (zeta * (b * q + 1)))
             elif self.q == np.inf:
-                print("Infinite number of equilibria")
+                print("Yet to be implemented")
                 
         else:
             if self.q == 0:
@@ -351,6 +351,6 @@ class Economy:
                 self.p_eq= ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.q+1)
                 self.g_eq= ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.q+1)
             elif self.q == np.inf:
-                print("Infinite number of equilibria")
+                print("Yet to be implemented")
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
         self.b_eq = self.house.thetabar / self.mu_eq
