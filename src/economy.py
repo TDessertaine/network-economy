@@ -2,17 +2,17 @@
 The ``economy`` module
 ======================
 
-This module declares the Economy class which encapsulates everything static in the model.
-This class has the network attributes (both input-output and substitution) along with subsequent quantities
-(equilibrium etc). It also enhirits firms and households attributes.
+This module declares the Economy class which encapsulates everything static
+in the model.
+This class has the network attributes (both input-output and substitution)
+along with subsequent quantities(equilibrium etc). It also enhirits firms and
+households attributes.
 """
 import warnings
 
 import numpy as np
 import pandas as pd
-from numpy.linalg import lstsq
 from scipy.optimize import anderson
-from scipy.optimize import fsolve
 
 from firms import Firms
 from household import Household
@@ -41,13 +41,13 @@ class Economy:
         # pylint: disable=unbalanced-tuple-unpacking
         # changements de variable: u = p_eq ; w = ((g_eq)**x) * (z**(q*zeta)) * p_eq
         u, w = np.split(x, 2)
-        print(u,w)
+        print(u, w)
         z_zeta, zeta, v, m_cal, q, exponent, kappa = p
         w_over_uq_p = (w /((z_zeta**q) * u))**exponent
         v1 = z_zeta * (u**zeta) * (1 - w_over_uq_p)
         m1 = m_cal * (u**zeta)
         v2 = z_zeta * w * (1 - w_over_uq_p)
-        m2 = m_cal * w 
+        m2 = m_cal * w
         return np.array([m1 - v1 - v, m2 - v2 - kappa])
 
     @staticmethod
@@ -70,7 +70,6 @@ class Economy:
         m1 = np.dot(m_cal, p)
         m2 = g * m1 - p * np.dot(m_cal.T, g)
         return np.concatenate((m1 - v1 - v, m2 - g * v + kappa))
-    
 
     @staticmethod
     def adj_list(j):
@@ -80,7 +79,7 @@ class Economy:
         """
         return np.array([np.where(j[i] != 0)[0] for i in range(len(j))])
 
-    def __init__(self, n, d, netstring, directed, j0, j1, a0, q, b):
+    def __init__(self, n, j0, j1, a0, q, b):
 
         # Network initialization
         self.n = 1
@@ -94,7 +93,7 @@ class Economy:
         self.q = q
         self.zeta = 1 / (q + 1)
         self.b = b
-        self.coefficient=self.zeta*((self.b*self.q+1)/self.b)
+        self.coefficient = self.zeta*((self.b*self.q+1)/self.b)
 
         # Auxiliary network variables
         self.lamb = None
@@ -160,9 +159,11 @@ class Economy:
         :param name: name of file.
         :return: None
         """
-        first_index = np.concatenate((['Firms' for k in range(11)], ['Household' for k in range(4)]))
+        first_index = np.concatenate((['Firms' for k in range(11)],
+                                      ['Household' for k in range(4)]))
         second_index = np.concatenate(
-            (['q', 'b', 'z', 'sigma', 'alpha', 'alpha_p', 'beta', 'beta_p', 'w', 'p_eq', 'g_eq'],
+            (['q', 'b', 'z', 'sigma', 'alpha', 'alpha_p', 'beta', 'beta_p',
+              'w', 'p_eq', 'g_eq'],
              ['l', 'theta', 'gamma', 'phi']))
         multi_index = [first_index, second_index]
         values = np.vstack((self.q * np.ones(self.n),
@@ -230,9 +231,11 @@ class Economy:
             self.m_cal = np.eye(self.n) - self.lamb
             self.v = np.array(self.lamb_a[0])
         else:
-            self.lamb = np.multiply(np.power(self.a, self.q * self.zeta), np.power(self.j1, self.zeta))
+            self.lamb = np.multiply(np.power(self.a, self.q * self.zeta),
+                                    np.power(self.j1, self.zeta))
             self.a_a, self.j_a = np.hstack((self.a0, self.a)), np.hstack((self.j0, self.j1))
-            self.lamb_a = np.multiply(np.power(self.a_a, self.q * self.zeta), np.power(self.j_a, self.zeta))
+            self.lamb_a = np.multiply(np.power(self.a_a, self.q * self.zeta),
+                                      np.power(self.j_a, self.zeta))
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[0])
 
@@ -287,27 +290,15 @@ class Economy:
         if self.q == np.inf:
             return self.lamb_a
         else:
-            return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))
-    
+            return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))  
         
-    def non_linear_eq_b1_qnonzero(self,x):
+    def non_linear_eq_b1_qnonzero(self, x):
         """
-        Function used to solve the equilibrium equations in the case 
+        Function used to solve the equilibrium equations in the case
         b=1 and q<+inf
         """
         return ((self.firms.z*x)**(1/(self.q+1)))-(self.lamb_a[1]*x)-(self.lamb_a[0])
     
-    def non_linear_eq_b_q_finites_1(self,u):
-        """
-        Function used to solve the first equilibrium equations in the case 
-        b<1 and q<+inf
-        :param x: zeta*(b*q+1)/b
-        """
-        return  self.house.kappa+(self.firms.z**(self.q*self.zeta))*self.lamb_a[1]*u**self.coefficient-self.firms.z*u
-    
-    def non_linear_eq_b_q_finites_1_prime(self,u): 
-        return (self.firms.z**(self.q*self.zeta))*self.lamb_a[1]*self.coefficient*(u**(self.coefficient-1))-self.firms.z
-        
     def compute_eq(self):
         """
         :return: computes the equilibrium of the economy
@@ -317,29 +308,29 @@ class Economy:
             if self.q == 0:
                 self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
-            elif self.q>0 and self.q != np.inf:
-                m_cal=z**(zeta)-lamb_1
-                init_guess_peq_zeta = lamb_0 / m_cal
+            elif self.q > 0 and self.q != np.inf:
+                m_cal = self.firms.z**(self.zeta)-self.lamb_a[1]
+                k = self.house.kappa
+                init_guess_peq_zeta = self.lamb_a[0] / m_cal
                 init_guess_w = np.divide(k, init_guess_peq_zeta)/m_cal
 
-                par = (z**zeta,
-                       zeta,
-                       lamb_0,
+                par = ((self.firms.z**(self.zeta)),
+                       self.zeta,
+                       self.lamb_a[0],
                        m_cal,
-                       q,
-                       (b - 1) / (b * q + 1),
-                       k
-                       )
+                       self.q,
+                       (self.b - 1) / (self.b * self.q + 1),
+                        k)
 
-                uw = anderson(lambda x: non_linear_eq_qnonzero(x, *par),
+                uw = anderson(lambda x: self.non_linear_eq_qnonzero(x, *par),
                               np.array([init_guess_peq_zeta, init_guess_w]),
                               M=50, f_tol=1e-15)
 
                 # pylint: disable=unbalanced-tuple-unpacking
                 u, w = np.split(uw, 2)
-                p_eq = u
-                g_eq = np.power(np.divide(w, np.power(z, q * zeta) * u),
-                                     b / (zeta * (b * q + 1)))
+                self.p_eq = u
+                self.g_eq = np.power(np.divide(w, np.power(self.firms.z, self.q * self.zeta) * u),
+                                     self.b / (self.zeta * (self.b * self.q + 1)))
             elif self.q == np.inf:
                 print("Yet to be implemented")
                 
@@ -347,9 +338,9 @@ class Economy:
             if self.q == 0:
                 self.p_eq = self.j0/(self.firms.z-self.j1)
                 self.g_eq = self.house.kappa/self.j0
-            elif self.q>0 and self.q != np.inf:
-                self.p_eq= ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.q+1)
-                self.g_eq= ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.q+1)
+            elif self.q > 0 and self.q != np.inf:
+                self.p_eq = ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.q+1)
+                self.g_eq = ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.q+1)
             elif self.q == np.inf:
                 print("Yet to be implemented")
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
