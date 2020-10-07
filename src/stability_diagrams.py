@@ -22,6 +22,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import simulations
+import math
 
 # %%
 ### Classify Equilibrium
@@ -49,20 +50,56 @@ def classify_p_inf(sim, p_eq_0, threshold=1e-6):
         p_inf = "div"
     return p_inf
 
-# Exponent of the enxponential
-def compute_exp_exponent(sim, t_max=500):
+
+def compute_dist_eq_tanh(sim, p_eq_0, g_eq_0):
     """
-    Function used for computing the k value for stability diagrams
-    (description to come).
+    Function used for computing the distance to the equilibrium value
+    for stability diagrams.
     :param sim: Dynamics object
     :param t_max: float, the simulation's duration
     :return: k value
     """
-    return np.diff(np.array([float(i) for i in np.log(sim.prices[-101:-1])]),
-                   n=1)/np.diff(np.array(range(t_max-100, t_max)))[-1]
+    eq=np.array([p_eq_0, g_eq_0, 0])
+    eco_fin=np.array([float(sim.prices[-1]), float(sim.eco.production_function(sim.Q_real[-2, :, 1])), float(sim.stocks[-1])])
+    return np.tanh(np.linalg.norm(eco_fin-eq))
+
+def compute_dist_eq_log(sim, p_eq_0, g_eq_0, lag):
+    """
+    Function used for computing the distance to the equilibrium value
+    for stability diagrams.
+    :param sim: Dynamics object
+    :param t_max: float, the simulation's duration
+    :return: k value
+    """
+    eq=np.array([p_eq_0, g_eq_0, 0])
+    dist_eq=[]
+    for i in range(len(sim.Q_real)-101,len(sim.Q_real)-1):
+        eco_fin=np.array([float(sim.prices[i]), float(sim.eco.production_function(sim.Q_real[i, :, 1])), float(sim.stocks[i])])
+        dist_eq.append(math.log(np.linalg.norm(eco_fin-eq)))
+    return np.diff(dist_eq, n=lag)/lag
+
+def compute_conv_tanh(sim):
+    """
+    Function used for computing the divergence or convergence rate
+    for stability diagrams.
+    :param sim: Dynamics object
+    :param t_max: float, the simulation's duration
+    :return: k value
+    """
+    return np.diff(np.array([math.tanh(float(i)) for i in sim.prices[-101:-1]]))[-1]
+
+def compute_conv_log(sim, lag):
+    """
+    Function used for computing the divergence or convergence rate
+    for stability diagrams.
+    :param sim: Dynamics object
+    :param t_max: float, the simulation's duration
+    :return: k value
+    """
+    return np.diff(np.array([math.log(float(i)) for i in sim.prices[-101:-1]]), n=lag)[-1]/lag
 
 # %%
-def rolling_diff(sim, threshold=1e-6):
+def rolling_diff(sim):
     """
     Function used for classifying the long-term behaviour of the prices in  a
     single simulation: rolling diff version.
@@ -71,8 +108,8 @@ def rolling_diff(sim, threshold=1e-6):
     :return: Bool, for "prices converge" statement
     """
     t_diff=[]
-    for t in range(1,10):
-        t_diff.append(np.amax(sim.prices[-1-10*t:-1])-np.amin(sim.prices[-1-10*t:-1]))
+    for t in range(1,50):
+        t_diff.append(np.amax(sim.prices[-1-t-10:-1-t])-np.amin(sim.prices[-1-t-10:-1-t]))
     df_t_diff = pd.DataFrame(t_diff[::-1])
     return df_t_diff.apply(lambda x: x.is_monotonic_decreasing)[0]
     
@@ -98,7 +135,7 @@ def comparison(sim_1, t_max):
     print("diff_simus", diff_simus)
     df_diff_simus = pd.DataFrame(diff_simus)
     if df_diff_simus.apply(lambda x: x.is_monotonic_decreasing)[0] and rolling_diff(sim_1, threshold=1e-6):
-        exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1]/sim_1.prices[-2])]),
+        exponents = np.diff(np.array([float(i) for i in np.log(sim_1.prices[-101:-1]-sim_1.prices[-2])]),
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
         print("conv exp", exponents)
         return exponents[-2]
@@ -115,6 +152,54 @@ def comparison(sim_1, t_max):
                    n=1)/np.diff(np.array(range(t_max-100, t_max)))
         print("div exp", exponents)
         return exponents[-2]    
+
+# %%
+def compute_dist_eq_log_thresh(sim, p_eq_0, g_eq_0, lag):
+    """
+    Function used for computing the distance to the equilibrium value
+    for stability diagrams.
+    :param sim: Dynamics object
+    :param t_max: float, the simulation's duration
+    :return: k value
+    """
+    eq=np.array([p_eq_0, g_eq_0, 0])
+    dist_eq=[]
+    for i in range(1,len(sim.Q_real)-1):
+        eco_fin=[float(sim.prices[i]), float(sim.eco.production_function(sim.Q_real[i, :, 1])), float(sim.stocks[i])]
+        dist_eq.append(np.linalg.norm(np.array(eco_fin)-eq))
+    if rolling_diff(sim):
+        thresh_1 = float(list(filter(lambda i: i < 1e-3, dist_eq))[0])
+        thresh_2 = float(list(filter(lambda i: i < 1e-6, dist_eq))[0])
+        print("thresh_1=", thresh_1, " thresh_2=", thresh_2)
+        print("index de thresh_1=", dist_eq.index(thresh_1), "index de thresh_2=", dist_eq.index(thresh_2))
+        if thresh_1==thresh_2:
+            return 0
+        else:
+            return (math.log(thresh_1)-math.log(thresh_2))/(dist_eq.index(thresh_2)-dist_eq.index(thresh_1))
+    else:         
+        return np.diff(np.array(np.log(dist_eq)), n=lag)[-1]/lag
+
+def compute_conv_log_thresh(sim, lag):
+    """
+    Function used for computing the divergence or convergence rate
+    for stability diagrams.
+    :param sim: Dynamics object
+    :param t_max: float, the simulation's duration
+    :return: k value
+    """
+    diff_log_price = np.diff(np.array([float(i) for i in sim.prices[1:-1]]), n=lag)
+    if rolling_diff(sim):
+        thresh_1 = float(list(filter(lambda i: i < 1e-3, diff_log_price))[0])
+        thresh_2 = float(list(filter(lambda i: i < 1e-6, diff_log_price))[0])
+        print("thresh_1=", thresh_1, " thresh_2=", thresh_2)
+        print("index de thresh_1=", np.nonzero(diff_log_price==thresh_1)[0][0], "index de thresh_2=", np.nonzero(diff_log_price==thresh_2)[0][0])
+        if thresh_1==thresh_2:
+            return 0
+        else:
+            return (math.log(thresh_1)-math.log(thresh_2))/(np.nonzero(diff_log_price==thresh_2)[0][0]-np.nonzero(diff_log_price==thresh_1)[0][0])
+    else:         
+        return diff_log_price[-1]/lag
+
 
 # %%
 ### Plot Stability Diagrams (colormap & scatterplot)
@@ -164,7 +249,7 @@ def plot_stabilitydiagramm_exp(data_diagramme_x, data_diagramme_y,
     cbar = fig.colorbar(im, ax=ax)
     cbar.ax.set_title("k")
     ax.set_title(title)
-    ax.set_xlabel("alpha_p")
+    ax.set_xlabel("beta")
     ax.set_ylabel("beta_p")
     fig.show()
     fig.savefig(directoire+"/"+title+".png")
