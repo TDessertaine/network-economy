@@ -140,7 +140,7 @@ class Firms(object):
         :param demand: current demand
         :return: Real wage-rescaled values of gains - losses, supply - demand, gains + losses, supply + demand
         """
-        gain = np.multiply(prices, Q[1, 0])
-        losses = np.multiply(Q[0, 1].T, prices)
+        gain = np.multiply(prices, np.sum(Q[1, :]))
+        losses = np.matmul(Q[:, 1].T, np.concatenate(([1], prices)))
 
         return gain - losses, supply - demand, gain + losses, supply + demand
