@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 # %%
-
 """
 Functions needed to run networks simulations in an aggregate manner:
 - stocks simulation variables
@@ -94,7 +93,7 @@ def simulation(**sim_args):
     economie.init_firms(**sim_args["firms_args"])
     economie.set_quantities()
     # Création de l'objet dynamique
-    sim = dyn(t_max=700, e=economie)
+    sim = dyn(t_max=700, e=economie, rho=0)
     # Dynamique
     sim.discrete_dynamics(**sim_args["dyn_args"])
     return sim
@@ -175,3 +174,5 @@ def plot_production_eq(sim, g_eq_0, scenario):
     #plt.grid(True)
     file = scenario+"_prods.png"
     fig.savefig(file)
+
+# %%

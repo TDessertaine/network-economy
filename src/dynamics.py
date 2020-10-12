@@ -8,8 +8,9 @@ import pdb
 
 class Dynamics(object):
 
-    def __init__(self, e, t_max, store=None):
+    def __init__(self, e, rho, t_max, store=None):
         self.eco = e
+        self.rho = rho
         self.t_max = t_max
         self.n = self.eco.n
         self.prices = np.zeros((t_max + 1, self.n))
@@ -112,13 +113,10 @@ class Dynamics(object):
                                                                                                )
 
         # Real trades according to the supply constraint
-        diag = np.diag(
-            self.s_vs_d[1] + offered_cons * (1 - self.b_vs_c) / self.Q_demand[t, 1, 1])
+        diag = np.clip((np.sum(self.supply)-self.rho*self.Q_demand[t, 1, 0])/(self.demand[1]-self.rho*self.Q_real[t, 1, 0]), None, 1)
 
-        self.Q_real[t, 1, 1] = np.clip(np.multiply(self.Q_demand[t, 1, 1],
-                                                   diag),
-                                         None,
-                                         self.Q_demand[t, 1, 1])
+        self.Q_real[t, 1, 1] = np.multiply(self.Q_demand[t, 1, 1], diag)
+        
         # print(self.Q_real[t])
         self.tradereal = np.sum(self.Q_real[t], axis=0)
 
