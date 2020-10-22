@@ -16,9 +16,9 @@ class Dynamics(object):
         self.prices = np.zeros((t_max + 1, self.n))
         self.wages = np.zeros(t_max + 1)
         self.prices_net = np.zeros((t_max + 1, self.n))
-        self.prods = np.zeros(self.n)
-        self.targets = np.zeros(self.n)
-        self.stocks = np.zeros((t_max + 1, self.n))
+        self.prods = np.zeros((t_max + 1, self.n))
+        self.targets = np.zeros((self.t_max + 1, self.n))
+        self.stocks = np.zeros((t_max + 1, self.n, self.n))
         self.profits = np.zeros(self.n)
         self.balance = np.zeros(self.n + 1)
         self.cashflow = np.zeros(self.n)
@@ -28,8 +28,10 @@ class Dynamics(object):
         self.tradereal = np.zeros(self.n + 1)
         self.s_vs_d = np.zeros(self.n + 1)
         self.b_vs_c = 0
-        self.Q_real = np.zeros((t_max + 1, self.n + 1, self.n + 1))
+        self.Q_exchange = np.zeros((t_max + 1, self.n + 1, self.n + 1))
         self.Q_demand = np.zeros((t_max + 1, self.n + 1, self.n + 1))
+        self.Q_opt = np.zeros((t_max + 1, self.n, self.n+1))
+        self.Q_prod = np.zeros((t_max + 1, self.n, self.n + 1))
         self.mu = np.zeros(t_max + 1)
         self.budget = np.zeros(t_max + 1)
         self.budget_res = 0
@@ -41,9 +43,9 @@ class Dynamics(object):
         self.prices = np.zeros((self.t_max + 1, self.n))
         self.wages = np.zeros(self.t_max + 1)
         self.prices_net = np.zeros(self.n)
-        self.prods = np.zeros(self.n)
-        self.targets = np.zeros(self.n)
-        self.stocks = np.zeros((self.t_max + 1, self.n))
+        self.prods = np.zeros((self.t_max + 1, self.n))
+        self.targets = np.zeros((self.t_max + 1, self.n))
+        self.stocks = np.zeros((self.t_max + 1, self.n, self.n))
         self.profits = np.zeros(self.n)
         self.balance = np.zeros(self.n + 1)
         self.cashflow = np.zeros(self.n)
@@ -53,8 +55,10 @@ class Dynamics(object):
         self.tradereal = np.zeros(self.n + 1)
         self.s_vs_d = np.zeros(self.n + 1)
         self.b_vs_c = 0
-        self.Q_real = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
+        self.Q_exchange = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
         self.Q_demand = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
+        self.Q_opt = np.zeros((self.t_max + 1, self.n, self.n + 1))
+        self.Q_prod = np.zeros((self.t_max + 1, self.n, self.n + 1))
         self.mu = np.zeros(self.t_max + 1)
         self.budget = np.zeros(self.t_max + 1)
         self.budget_res = 0
@@ -71,16 +75,32 @@ class Dynamics(object):
         """
 
         # Firms
-        self.supply = np.concatenate(([self.labour[t]], self.eco.firms.z * self.prods + self.stocks[t]))
+        self.supply = np.concatenate(([self.labour[t]], self.eco.firms.z * self.prods[t] + np.diagonal(self.stocks[t])))
 
-        self.targets = self.eco.firms.compute_targets(self.prices[t],
-                                                      self.Q_demand[t - 1],
+        scarce_input = np.nanargmin(np.divide(self.Q_prod[t-1],
+                            self.eco.j_a
+                            ),
+                  axis=1)
+
+
+        mean_stocks = np.mean(self.stocks[t] - np.diagonal(self.stocks[t])*np.eye(self.n), axis=1)
+
+
+        exp_demand = self.Q_demand[t-1]
+        exp_demand[1:, 1:] = np.matmul(self.Q_demand[t - 1, 1:,1:], np.diag(1-stocks_part)) + np.matmul(np.diag(mean_stocks * stocks_part),
+                                                                                         np.ones((self.n,self.n)))
+
+        exp_demand[1:, 1:] = exp_demand[1:, 1:] + mean_stocks
+
+        self.targets[t] = self.eco.firms.compute_targets(self.prices[t],
+                                                      exp_demand,
                                                       self.supply,
-                                                      self.prods
+                                                      self.prods[t]
                                                       )
-        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(self.targets,
+        self.Q_opt[t] = self.eco.firms.compute_optimal_quantities_firms(self.targets[t+1],
                                                                     self.prices[t],
                                                                     self.prices_net,
+                                                                    self.stocks[t],
                                                                     self.eco.q,
                                                                     self.eco.b,
                                                                     self.eco.lamb_a,
@@ -88,6 +108,12 @@ class Dynamics(object):
                                                                     self.eco.zeros_j_a,
                                                                     self.n
                                                                     )
+
+        self.Q_demand[t, 1:, 0] = self.Q_opt[t, :, 0]
+        self.Q_demand[t, 1:, 1:] = np.clip(self.Q_opt[t, :, 1:] - (self.stocks[t]-np.diagonal(self.stocks[t])*np.eye(self.n)),
+                                         0,
+                                         None)
+
 
     def time_t(self, t):
         """
@@ -99,36 +125,30 @@ class Dynamics(object):
         :return: side-effect
         """
 
+        self.Q_exchange[t, 1:, 0] = self.Q_demand[t, 1:, 0] * np.minimum(1, self.labour[t] / np.sum(self.Q_demand[t, 1:, 0]))
+        self.budget[t] = self.budget_res + np.sum(self.Q_exchange[t, 1:, 0])
+
+        self.Q_demand[t, 0, 1:] = self.Q_demand[t, 0, 1:] * np.minimum(1, self.budget[t] / (
+                self.labour[t] + self.budget_res))
+
         self.demand = np.sum(self.Q_demand[t], axis=0)
         # Supply constraint
-        self.s_vs_d = np.clip(self.supply / self.demand, None, 1)  # =1 if supply >= constraint
-
-        # Real work according to the labour supply constraint and associated budget
-        self.Q_real[t, 1:, 0] = self.Q_demand[t, 1:, 0] * self.s_vs_d[0]
-        self.budget[t] = self.budget_res + np.sum(self.Q_real[t, 1:, 0])
-
-        # Budget constraint
-        offered_cons = self.Q_demand[t, 0, 1:] * self.s_vs_d[1:]
-        self.b_vs_c, self.Q_real[t, 0, 1:], self.budget_res = self.eco.house.budget_constraint(self.budget[t],
-                                                                                               self.prices[t],
-                                                                                               offered_cons
-                                                                                               )
+        self.s_vs_d = np.clip(self.supply / self.demand, None, 1)  # =1 if supply >= demand
 
         # Real trades according to the supply constraint
-        diag = np.diag(
-            self.s_vs_d[1:] + offered_cons * (1 - self.b_vs_c) / np.sum(self.Q_demand[t, 1:, 1:], axis=0))
 
-        self.Q_real[t, 1:, 1:] = np.clip(np.matmul(self.Q_demand[t, 1:, 1:],
-                                                   diag),
-                                         None,
-                                         self.Q_demand[t, 1:, 1:])
-        # print(self.Q_real[t])
-        self.tradereal = np.sum(self.Q_real[t], axis=0)
+        self.Q_exchange[t, :, 1:] = np.matmul(self.Q_demand[t, :, 1:], np.diag(self.s_vs_d[1:]))
+
+        self.Q_prod[t] = self.Q_exchange[t, 1:, :]
+        self.Q_prod[t, :, 1:] += self.stocks[t] - np.diagonal(self.stocks[t]) * np.eye(self.n)
+
+        self.budget_res = self.budget[t] - np.dot(self.Q_exchange[t, 0, 1:], self.prices[t])
+        self.tradereal = np.sum(self.Q_exchange[t], axis=0)
 
         # Prices and wage update
         self.profits, self.balance, self.cashflow, self.tradeflow = \
             self.eco.firms.compute_profits_balance(self.prices[t],
-                                                   self.Q_real[t],
+                                                   self.Q_exchange[t],
                                                    self.supply,
                                                    self.demand
                                                    )
@@ -156,10 +176,19 @@ class Dynamics(object):
         # Clipping to avoid negative almost zero values
         self.prices_net = self.eco.compute_p_net(self.prices[t + 1])
 
-        self.prods = self.eco.production_function(self.Q_real[t, 1:, :])
-        self.stocks[t + 1] = self.eco.firms.update_stocks(self.supply[1:],
-                                                          self.tradereal[1:]
-                                                          )
+        self.prods[t + 1] = self.eco.production_function(self.Q_prod[t])
+
+        self.stocks[t + 1] = (self.eco.q == 0) * (self.Q_prod[t, :, 1:] - \
+                                                  np.matmul(np.diag(np.nanmin(np.divide(self.Q_prod[t],
+                                                                                        self.eco.j_a
+                                                                                        ),
+                                                                                axis=1)
+                                                                    )
+                                                            ,self.eco.j_a[:, 1:]))
+
+        np.fill_diagonal(self.stocks[t + 1], self.supply[1:]-np.sum(self.Q_exchange[t, :, 1:], axis=0))
+
+        self.stocks[t + 1] = np.matmul(self.stocks[t + 1], np.diag(1 - self.eco.firms.sigma))
 
         self.mu[t], self.Q_demand[t + 1, 0, 1:], self.labour[t + 1] = \
             self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
@@ -173,7 +202,7 @@ class Dynamics(object):
         self.wages[0] = w0
         self.budget_res = B0 / w0
 
-        self.prods = g0
+        self.prods[1] = g0
         self.stocks[1] = s0
         self.prices[1] = p0 / w0
         self.prices_net = self.eco.compute_p_net(self.prices[1])
@@ -182,14 +211,15 @@ class Dynamics(object):
                                                              self.prices[1]
                                                              )
 
-        self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + s0])
+        self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + np.diagonal(s0)])
 
         # Firms
 
-        self.targets = t1
-        self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(self.targets,
+        self.targets[1] = t1
+        self.Q_opt[1] = self.eco.firms.compute_optimal_quantities_firms(self.targets[1],
                                                                     self.prices[1],
                                                                     self.prices_net,
+                                                                    self.stocks[1],
                                                                     self.eco.q,
                                                                     self.eco.b,
                                                                     self.eco.lamb_a,
@@ -198,6 +228,11 @@ class Dynamics(object):
                                                                     self.n
                                                                     )
 
+        self.Q_demand[1, 1:, 0] = self.Q_opt[1, :, 0]
+        self.Q_demand[1, 1:, 1:] = np.clip(
+            self.Q_opt[1, :, 1:] - (self.stocks[1] - np.diagonal(self.stocks[1]) * np.eye(self.n)),
+            0,
+            None)
         self.time_t(1)
         self.time_t_plus(1)
         t = 2
@@ -208,9 +243,9 @@ class Dynamics(object):
             self.time_t_plus(t)
             t += 1
 
-        self.prods = g0
-        self.targets = t1
-        self.budget_res = B0 / w0
+        # self.prods = g0
+        # self.targets = t1
+        # self.budget_res = B0 / w0
 
     @staticmethod
     @jit
@@ -218,7 +253,7 @@ class Dynamics(object):
         prods = np.zeros((tmax + 1, n))
         prods[1] = g0
         for t in range(1, tmax - 1):
-            prods[t + 1, :] = e.production_function(Q_real[t, 1:, :])
+            prods[t + 1, :], minQ = e.production_function(Q_real[t, 1:, :])
         return prods
 
     @staticmethod

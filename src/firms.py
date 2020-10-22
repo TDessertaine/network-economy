@@ -85,7 +85,7 @@ class Firms:
         :param sales: current sales
         :return: Depreciated unsold goods
         """
-        return (1 - self.sigma) * np.clip(supply - sales, 0, None)
+        return np.clip(supply - sales, 0, None)
 
     def update_wages(self, labour_balance, total_labour):
         """
@@ -126,7 +126,7 @@ class Firms:
         exp_demand = np.sum(Q_demand_prev, axis=0)
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
-    def compute_demands_firms(self, targets, prices, prices_net, q, b, lamb_a, j_a, zeros_j_a, n):
+    def compute_optimal_quantities_firms(self, targets, prices, prices_net, stocks, q, b, lamb_a, j_a, zeros_j_a, n):
         """
         Computes
         :param targets: production targets for the next period
@@ -156,6 +156,7 @@ class Firms:
                                                                        np.power(targets, 1. / b)),
                                                            np.power(np.concatenate((np.array([1]), prices)),
                                                                     - q / (1 + q))))
+
         return demanded_products_labor
 
     def compute_profits_balance(self, prices, Q_real, supply, demand):
