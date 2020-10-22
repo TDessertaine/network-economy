@@ -66,27 +66,6 @@ class Firms:
         self.beta_p = beta_p
         self.w = w
 
-    def update_z(self, z):
-        self.z = z
-
-    def update_sigma(self, sigma):
-        self.sigma = sigma
-
-    def update_alpha(self, alpha):
-        self.alpha = alpha
-
-    def update_alpha_p(self, alpha_p):
-        self.alpha_p = alpha_p
-
-    def update_beta(self, beta):
-        self.beta = beta
-
-    def update_beta_p(self, beta_p):
-        self.beta_p = beta_p
-
-    def update_w(self, w):
-        self.w = w
-
     def update_prices(self, prices, profits, balance, cashflow, tradeflow):
         """
         Updates prices according to observed profits and balances
@@ -147,7 +126,7 @@ class Firms:
         exp_demand = np.sum(Q_demand_prev, axis=0)
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
-    def compute_demands_firms(self, targets, prices, prices_net, q, b, lamb_a, j_a, a_a, zeros_j_a, n):
+    def compute_demands_firms(self, targets, prices, prices_net, q, b, lamb_a, j_a, zeros_j_a, n):
         """
         Computes
         :param targets: production targets for the next period
@@ -163,10 +142,10 @@ class Firms:
                                                 lamb_a)
         elif q == np.inf:
             prices_net_aux = np.array([
-                np.prod(np.power(j_a[i, :] * np.concatenate((np.array([1]), prices)) / a_a[i, :], a_a[i, :])[zeros_j_a[i, :]])
+                np.prod(np.power(j_a[i, :] * np.concatenate((np.array([1]), prices)), lamb_a[i, :])[zeros_j_a[i, :]])
                 for i in range(n)
             ])
-            demanded_products_labor = np.multiply(a_a,
+            demanded_products_labor = np.multiply(lamb_a,
                                                   np.outer(np.multiply(prices_net_aux,
                                                                        np.power(targets, 1. / b)),
                                                            np.concatenate((np.array([1]), 1. / prices))
