@@ -312,23 +312,22 @@ class Economy:
         """
         :return: computes the equilibrium of the economy
         """
-        # TODO: code COBB-DOUGLAS q=inf
         if self.b != 1:
             if self.q == 0:
                 self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
             elif self.q>0 and self.q != np.inf:
-                m_cal=z**(zeta)-lamb_1
-                init_guess_peq_zeta = lamb_0 / m_cal
-                init_guess_w = np.divide(k, init_guess_peq_zeta)/m_cal
+                m_cal=self.firms.z**(self.zeta)-self.lamb_a[1]
+                init_guess_peq_zeta = self.lamb_a[0] / m_cal
+                init_guess_w = np.divide(self.house.kappa, init_guess_peq_zeta)/m_cal
 
-                par = (z**zeta,
-                       zeta,
-                       lamb_0,
+                par = (self.firms.z**self.zeta,
+                       self.zeta,
+                       self.lamb_a[0],
                        m_cal,
-                       q,
-                       (b - 1) / (b * q + 1),
-                       k
+                       self.q,
+                       (self.b - 1) / (self.b * self.q + 1),
+                       self.house.kappa
                        )
 
                 uw = anderson(lambda x: non_linear_eq_qnonzero(x, *par),
@@ -337,20 +336,23 @@ class Economy:
 
                 # pylint: disable=unbalanced-tuple-unpacking
                 u, w = np.split(uw, 2)
-                p_eq = u
-                g_eq = np.power(np.divide(w, np.power(z, q * zeta) * u),
-                                     b / (zeta * (b * q + 1)))
+                self.p_eq = u
+                self.g_eq = np.power(np.divide(w, np.power(self.firms.z, self.q * self.zeta) * u),
+                                     self.b / (self.zeta * (self.b * self.q + 1)))
             elif self.q == np.inf:
-                print("Yet to be implemented")
+                self.p_eq = (1/self.a0)*(self.firms.z**(1/(self.b*(1-self.a0)-1)))*((1/self.j0)**(self.b*self.a0/self.b*(1-self.a0)-1))*(((1-self.a0)/self.j0)**((-self.b*(1-self.a0))/(self.b*(1-self.a0)-1)))             
+                self.g_eq = self.house.kappa*(self.firms.z**((self.b*(self.a0-1))/(self.b*(1-self.a0)-1)))*((1/self.j0)**(-self.b*self.a0/self.b*(1-self.a0)-1))*(((1-self.a0)/self.j0)**((self.b*(1-self.a0))/(self.b*(1-self.a0)-1)))
                 
         else:
             if self.q == 0:
                 self.p_eq = self.j0/(self.firms.z-self.j1)
                 self.g_eq = self.house.kappa/self.j0
             elif self.q>0 and self.q != np.inf:
-                self.p_eq= ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.q+1)
-                self.g_eq= ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.q+1)
+                self.p_eq= ((self.firms.z**(self.zeta) - self.lamb_a[1])/(self.lamb_a[0]))**(self.zeta)
+                self.g_eq= ((self.house.kappa)/((self.firms.z-self.lamb_a[1]*self.firms.z**(self.q*self.zeta))))*((self.lamb_a[0])/(self.firms.z**(self.zeta) - self.lamb_a[1]))**(self.zeta)
             elif self.q == np.inf:
-                print("Yet to be implemented")
+                self.p_eq = (1/self.a0)*(self.firms.z**(1/(self.b*(1-self.a0)-1)))*((1/self.j0)**(self.b*self.a0/self.b*(1-self.a0)-1))*(((1-self.a0)/self.j0)**((-self.b*(1-self.a0))/(self.b*(1-self.a0)-1)))             
+                self.g_eq = self.house.kappa*(self.firms.z**((self.b*(self.a0-1))/(self.b*(1-self.a0)-1)))*((1/self.j0)**(-self.b*self.a0/self.b*(1-self.a0)-1))*(((1-self.a0)/self.j0)**((self.b*(1-self.a0))/(self.b*(1-self.a0)-1)))
+                
         self.mu_eq = np.power(self.house.thetabar * self.house.v_phi, self.house.phi / (1 + self.house.phi))
         self.b_eq = self.house.thetabar / self.mu_eq
