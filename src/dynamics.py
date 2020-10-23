@@ -216,28 +216,6 @@ class Dynamics(object):
         self.targets = t1
         self.budget_res = B0 / w0
 
-    @staticmethod
-    def compute_prods(e, Q_real, tmax, n, g0):
-        prods = np.zeros((tmax + 1, n))
-        prods[1] = g0
-        for t in range(1, tmax - 1):
-            prods[t + 1, :] = e.production_function(Q_real[t, 1:, :])
-        return prods
-
-    @staticmethod
-    def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
-        supply_goods = e.firms.z * prods + stocks
-        demand = np.sum(Q_demand, axis=1)
-        profits, balance, cashflow, tradeflow = np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1)), \
-                                                np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1))
-        for t in range(1, tmax):
-            supply_t = np.concatenate(([labour[t]], supply_goods[t]))
-            profits[t], balance[t], cashflow[t], tradeflow[t] = e.firms.compute_profits_balance(prices[t],
-                                                                                                Q_real[t],
-                                                                                                supply_t,
-                                                                                                demand[t]
-                                                                                                )
-        return profits, balance, cashflow, tradeflow
 
     @staticmethod
     def compute_utility(e, Q_real, tmax):
