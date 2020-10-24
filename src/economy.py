@@ -230,6 +230,7 @@ class Economy:
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[:, 0])
         self.zeros_j_a = self.j_a != 0
+        self.compute_eq()
 
     def get_eps_cal(self):
         """
@@ -262,8 +263,18 @@ class Economy:
         :return: side effect
         """
         self.b = b
+        self.compute_eq()
 
-    def production_function(self, Q):
+    def set_q(self, q):
+        """
+        Sets return to scale parameter
+        :param b: return to scale
+        :return: side effect
+        """
+        self.q = q
+        self.set_quantities()
+
+    def production_function(self, Q, boost, prod_exp):
         """
         CES production function
         :param Q: if n firms, (n,n+1) matrix of available labour and goods for production
@@ -274,6 +285,7 @@ class Economy:
                                    axis=1)
             prod = np.power(min_Q,
                             self.b)
+
             return prod
         elif self.q == np.inf:
             return np.power(np.nanprod(np.power(np.divide(Q, self.j_a),
@@ -310,7 +322,8 @@ class Economy:
                        self.v,
                        self.m_cal,
                        self.b - 1,
-                       self.house.kappa)
+                       self.house.kappa,
+                       self.firms.boost)
 
                 pg = leastsq(lambda x: self.non_linear_eq_qzero(x, *par),
                                    np.concatenate((init_guess_peq, init_guess_geq)),
