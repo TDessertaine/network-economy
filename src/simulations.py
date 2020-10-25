@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 # %%
-
 """
 Functions needed to run networks simulations in an aggregate manner:
 - stocks simulation variables
@@ -20,7 +19,7 @@ from economy import Economy as eco
 
 # %%
 ### Stocks simulation variables changing only the parameters you want to work on
-def variables_simulation(alpha, alpha_p, beta, beta_p, w, q, b, pert):
+def variables_simulation(alpha, alpha_p, beta, beta_p, w, q, b, p_init, g_init, pert):
     """
     Function used for stocking every parameter of a given simulation when
     iterating on the model's timescales.
@@ -37,7 +36,7 @@ def variables_simulation(alpha, alpha_p, beta, beta_p, w, q, b, pert):
     sim_args = {}
     # Variables statiques Firms
     sim_args["firms_args"] = {
-        "z":np.random.uniform(5, 5, 1),
+        "z":np.random.uniform(12, 12, 1),
         "sigma":np.random.uniform(0.2, 0.2, 1),
         "alpha":alpha,
         "alpha_p":alpha_p,
@@ -65,16 +64,12 @@ def variables_simulation(alpha, alpha_p, beta, beta_p, w, q, b, pert):
         'b':b
         }
     # Variables statiques Dynamics
-    #p_init=3
-    #g_init=np.array([5])
-    p_init = 1.6666666666666667+pert
-    g_init = np.array([2])+pert
     sim_args["dyn_args"] = {
-        'p0':np.array([p_init]),#np.random.uniform(1,2,econ_args['n']),
+        'p0':np.array([p_init+pert]),#np.random.uniform(1,2,econ_args['n']),
         'w0':1,
-        'g0':g_init,
+        'g0':g_init+pert,
         's0':np.random.uniform(0, 0, 1),
-        't1':g_init,
+        't1':g_init+pert,
         'B0':random.randint(0, 0)
         }
     return sim_args
@@ -94,10 +89,25 @@ def simulation(**sim_args):
     economie.init_firms(**sim_args["firms_args"])
     economie.set_quantities()
     # Création de l'objet dynamique
-    sim = dyn(t_max=700, e=economie)
+    sim = dyn(t_max=5000, e=economie, rho=0)
     # Dynamique
     sim.discrete_dynamics(**sim_args["dyn_args"])
     return sim
+
+# %%
+### Disturbs equilibrium
+def disturbs_equilibrium(sim, pert_p, pert_g):
+    """
+    Function used for disturbing the economy away from its
+    equilibrium price and production.
+    :param sim: Dynamics object
+    :return: tuple p_eq__dis_0, g_eq_dis_0, perturbed price and prod level
+    """
+    sim.eco.compute_eq()
+    p_eq_dis_0=sim.eco.p_eq[0] + pert_p
+    g_eq_dis_0=sim.eco.g_eq[0] + pert_g
+    return p_eq_dis_0, g_eq_dis_0
+
 
 # %%
 ### Computes and stocks equilibrium values
@@ -110,17 +120,26 @@ def compute_equilibrium(sim):
     sim.eco.compute_eq()
     print("P_EQ", sim.eco.p_eq)
     print("G_EQ", sim.eco.g_eq)
-    p_eq_0 = sim.eco.p_eq[0]
-    g_eq_0 = sim.eco.g_eq[0]
-    #g_eq_1=sim.eco.g_eq[1]
-    #p_eq_1=sim.eco.p_eq[1]
-    #p_eq_dis_1=sim.eco.p_eq[1] + random.uniform(-10**(-5),10**(-5))
-    #g_eq_dis_1=sim.eco.g_eq[1] + random.uniform(-10**(-5),10**(-5))
-    if sim.eco.b != 1 and sim.eco.q > 0:
-        print("ATTENTION A LA PRECISION DE L'EQUILIBRE")
-        print(sim.prices[-1][0])
-        prod = [sim.Q_demand[i, 1, 1] + sim.Q_demand[i, 1, 0] for i in range(len(sim.Q_demand))]
-        print(prod[-1])
+    if len(sim.eco.p_eq)==1:
+        p_eq_0 = sim.eco.p_eq[0]
+        g_eq_0 = sim.eco.g_eq[0]
+        if sim.eco.b != 1 and sim.eco.q > 0:
+            print("ATTENTION A LA PRECISION DE L'EQUILIBRE")
+            prod = [sim.Q_demand[i, 1, 1] + sim.Q_demand[i, 1, 0] for i in range(len(sim.Q_demand))]
+            print("last prod", prod[-1])
+            print("last price", sim.prices[-1][0])
+    else:
+        print("MORE THAN ONE EQUILIBRIUM")
+        p_eq_0 = sim.eco.p_eq[0]
+        g_eq_0 = sim.eco.g_eq[0]
+        p_eq_1 = sim.eco.p_eq[1]
+        g_eq_1 = sim.eco.g_eq[1]
+        if sim.eco.b != 1 and sim.eco.q > 0:
+            print("ATTENTION A LA PRECISION DE L'EQUILIBRE")
+            prod = [sim.Q_demand[i, 1, 1] + sim.Q_demand[i, 1, 0] for i in range(len(sim.Q_demand))]
+            print("last prod", prod[-1])
+            print("last price", sim.prices[-1][0])
+
     return p_eq_0, g_eq_0
 
 # %%
@@ -175,3 +194,5 @@ def plot_production_eq(sim, g_eq_0, scenario):
     #plt.grid(True)
     file = scenario+"_prods.png"
     fig.savefig(file)
+
+# %%

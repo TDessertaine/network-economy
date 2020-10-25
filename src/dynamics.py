@@ -8,8 +8,9 @@ import pdb
 
 class Dynamics(object):
 
-    def __init__(self, e, t_max, store=None):
+    def __init__(self, e, rho, t_max, store=None):
         self.eco = e
+        self.rho = rho
         self.t_max = t_max
         self.n = self.eco.n
         self.prices = np.zeros((t_max + 1, self.n))
@@ -112,13 +113,10 @@ class Dynamics(object):
                                                                                                )
 
         # Real trades according to the supply constraint
-        diag = np.diag(
-            self.s_vs_d[1] + offered_cons * (1 - self.b_vs_c) / self.Q_demand[t, 1, 1])
+        diag = np.clip((np.sum(self.supply)-self.rho*self.Q_demand[t, 1, 0])/(self.demand[1]-self.rho*self.Q_real[t, 1, 0]), None, 1)
 
-        self.Q_real[t, 1, 1] = np.clip(np.multiply(self.Q_demand[t, 1, 1],
-                                                   diag),
-                                         None,
-                                         self.Q_demand[t, 1, 1])
+        self.Q_real[t, 1, 1] = np.multiply(self.Q_demand[t, 1, 1], diag)
+        
         # print(self.Q_real[t])
         self.tradereal = np.sum(self.Q_real[t], axis=0)
 
@@ -218,28 +216,6 @@ class Dynamics(object):
         self.targets = t1
         self.budget_res = B0 / w0
 
-    @staticmethod
-    def compute_prods(e, Q_real, tmax, n, g0):
-        prods = np.zeros((tmax + 1, n))
-        prods[1] = g0
-        for t in range(1, tmax - 1):
-            prods[t + 1, :] = e.production_function(Q_real[t, 1:, :])
-        return prods
-
-    @staticmethod
-    def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
-        supply_goods = e.firms.z * prods + stocks
-        demand = np.sum(Q_demand, axis=1)
-        profits, balance, cashflow, tradeflow = np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1)), \
-                                                np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1))
-        for t in range(1, tmax):
-            supply_t = np.concatenate(([labour[t]], supply_goods[t]))
-            profits[t], balance[t], cashflow[t], tradeflow[t] = e.firms.compute_profits_balance(prices[t],
-                                                                                                Q_real[t],
-                                                                                                supply_t,
-                                                                                                demand[t]
-                                                                                                )
-        return profits, balance, cashflow, tradeflow
 
     @staticmethod
     def compute_utility(e, Q_real, tmax):
