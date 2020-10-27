@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from numpy.linalg import lstsq
-from scipy.optimize import leastsq
+from scipy.optimize import leastsq, broyden1, diagbroyden
 
 from firms import Firms
 from household import Household
@@ -61,11 +61,11 @@ class Economy:
 
         # pylint: disable=unbalanced-tuple-unpacking
         p, g = np.split(x, 2)
-        z, v, m_cal, exponent, kappa = par
-        v1 = np.multiply(z, np.multiply(p, 1 - np.power(g, exponent)))
+        z, v, m_cal, exponent, kappa, delta = par
+        v1 = np.multiply(z, np.multiply(p, 1 - np.divide(g, np.power(g + delta,exponent))))
         m1 = np.dot(m_cal, p)
-        m2 = g * m1 - p * np.dot(m_cal.T, g)
-        return np.concatenate((m1 - v1 - v, m2 - g * v + kappa))
+        m2 = np.dot(m_cal.T, np.multiply(g, np.power(g+delta,exponent)))
+        return np.concatenate((m1 - v1 - v, m2 + np.multiply(z, np.multiply(g, 1-np.power(g+delta,exponent))) - kappa / p))
 
     @staticmethod
     def adj_list(j):
@@ -230,7 +230,7 @@ class Economy:
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[:, 0])
         self.zeros_j_a = self.j_a != 0
-        self.compute_eq()
+        #self.compute_eq()
 
     def get_eps_cal(self):
         """
@@ -246,7 +246,7 @@ class Economy:
         :return: side effect
         """
         min_eig = self.get_eps_cal()
-        z_n, sigma, alpha, alpha_p, beta, beta_p, w = self.firms.z + (eps - min_eig), \
+        z_n, sigma, alpha, alpha_p, beta, beta_p, w = self.firms.z * np.power((1 + (eps - min_eig)/np.power(self.firms.z, self.zeta)),1+self.q), \
                                                       self.firms.sigma, \
                                                       self.firms.alpha, \
                                                       self.firms.alpha_p, \
@@ -263,7 +263,7 @@ class Economy:
         :return: side effect
         """
         self.b = b
-        self.compute_eq()
+        #self.compute_eq()
 
     def set_q(self, q):
         """
@@ -272,9 +272,9 @@ class Economy:
         :return: side effect
         """
         self.q = q
-        self.set_quantities()
+        #self.set_quantities()
 
-    def production_function(self, Q, boost, prod_exp):
+    def production_function(self, Q):
         """
         CES production function
         :param Q: if n firms, (n,n+1) matrix of available labour and goods for production
@@ -283,8 +283,7 @@ class Economy:
         if self.q == 0:
             min_Q = np.nanmin(np.divide(Q, self.j_a),
                                    axis=1)
-            prod = np.power(min_Q,
-                            self.b)
+            prod = np.power(min_Q, self.b)
 
             return prod
         elif self.q == np.inf:
@@ -308,7 +307,7 @@ class Economy:
         else:
             return np.matmul(self.lamb_a, np.power(np.concatenate(([1], prices)), self.zeta))
 
-    def compute_eq(self):
+    def compute_eq(self, boost):
         """
         :return: compute the equilibrium of the economy
         """
@@ -316,32 +315,25 @@ class Economy:
         if self.b != 1:
             if self.q == 0:
                 init_guess_peq = lstsq(self.m_cal, self.v, rcond=10e-7)[0]
-                init_guess_geq = lstsq(self.m_cal.T, np.divide(self.house.kappa, init_guess_peq), rcond=None)[0]
+                init_guess_geq = lstsq(self.m_cal.T, np.divide(self.house.kappa, init_guess_peq), rcond=10e-7)[0]
 
                 par = (self.firms.z,
                        self.v,
                        self.m_cal,
-                       self.b - 1,
+                       1./self.b,
                        self.house.kappa,
-                       self.firms.boost)
+                       boost
+                        )
 
                 pg = leastsq(lambda x: self.non_linear_eq_qzero(x, *par),
-                                   np.concatenate((init_guess_peq, init_guess_geq)),
-
+                                   np.concatenate((init_guess_peq, init_guess_geq))
                                    )[0]
+                pg = broyden1(lambda x: self.non_linear_eq_qzero(x, *par),
+                             pg
+                             )
 
-                # pg_int = anderson(lambda x: self.non_linear_eq_qzero(x, *par),
-                #                   pg_init,
-                #                   M=50
-                #                   )
-                #
-                # pg = anderson(lambda x: self.non_linear_eq_qzero(x, *par),
-                #               pg_int,
-                #               M=50
-                #               )
-                # pylint: disable=unbalanced-tuple-unpacking
-                self.p_eq, g = np.split(pg, 2)
-                self.g_eq = np.power(g, self.b)
+                self.p_eq, self.g_eq = np.split(pg, 2)
+                #self.g_eq = np.power(g, self.b)
             else:
                 init_guess_peq_zeta = lstsq(self.m_cal, self.v, rcond=None)[0]
                 init_guess_w = lstsq(self.m_cal.T,

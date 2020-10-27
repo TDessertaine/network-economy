@@ -5,6 +5,7 @@ from numba import jit
 warnings.simplefilter("ignore")
 
 import numpy as np
+from tqdm import tqdm_notebook
 
 
 class Dynamics(object):
@@ -36,7 +37,7 @@ class Dynamics(object):
         self.Q_used = np.zeros((t_max + 1, self.n, self.n + 1))
         self.mu = np.zeros(t_max + 1)
         self.budget = np.zeros(t_max + 1)
-        self.budget_res = 0
+        self.budget_res = np.zeros(t_max + 1)
         self.labour = np.zeros(t_max + 1)
 
         self.store = store
@@ -67,7 +68,7 @@ class Dynamics(object):
         self.Q_used = np.zeros((self.t_max + 1, self.n, self.n + 1))
         self.mu = np.zeros(self.t_max + 1)
         self.budget = np.zeros(self.t_max + 1)
-        self.budget_res = 0
+        self.budget_res = np.zeros(self.t_max + 1)
         self.labour = np.zeros(self.t_max + 1)
 
     def time_t_minus(self, t):
@@ -86,7 +87,7 @@ class Dynamics(object):
         self.targets[t+1] = self.eco.firms.compute_targets(self.prices[t],
                                                       self.Q_demand[t-1],
                                                       self.supply,
-                                                      self.prods[t] + self.boost
+                                                      self.prods[t]+self.boost
                                                            )
 
         self.Q_opt[t] = self.eco.firms.compute_optimal_quantities_firms(self.targets[t+1],
@@ -120,10 +121,10 @@ class Dynamics(object):
 
         self.Q_exchange[t, 1:, 0] = self.Q_demand[t, 1:, 0] * np.minimum(1, self.labour[t] / np.sum(self.Q_demand[t, 1:, 0]))
 
-        self.budget[t] = self.budget_res + np.sum(self.Q_exchange[t, 1:, 0])
+        self.budget[t] = self.budget_res[t] + np.sum(self.Q_exchange[t, 1:, 0])
 
         self.Q_demand[t, 0, 1:] = self.Q_demand[t, 0, 1:] * np.minimum(1, self.budget[t] / (
-                self.labour[t] + self.budget_res))
+                self.labour[t] + self.budget_res[t]))
 
         self.demand = np.sum(self.Q_demand[t], axis=0)
         # Supply constraint
@@ -135,11 +136,12 @@ class Dynamics(object):
 
         self.Q_prod[t, :, 0] = self.Q_exchange[t, 1:, 0]
         self.Q_prod[t, :, 1:] = self.Q_exchange[t, 1:, 1:] + np.minimum(self.stocks[t] - np.diag(self.stocks[t])*np.eye(self.n), self.Q_opt[t, :, 1:])
+        #print(np.nanargmin(np.divide(self.Q_prod[t], self.eco.j_a), axis=1))
 
         self.Q_used[t] = np.matmul(np.diag(np.nanmin(np.divide(self.Q_prod[t], self.eco.j_a), axis=1)),
                                    self.eco.j_a)
 
-        self.budget_res = self.budget[t] - np.dot(self.Q_exchange[t, 0, 1:], self.prices[t])
+        self.budget_res[t+1] = self.budget[t] - np.dot(self.Q_exchange[t, 0, 1:], self.prices[t])
         self.tradereal = np.sum(self.Q_exchange[t], axis=0)
 
         # Prices and wage update
@@ -150,7 +152,7 @@ class Dynamics(object):
                                                    self.demand
                                                    )
 
-        self.wages[t] = self.eco.firms.update_wages(self.balance[0], self.tradeflow[0])
+        self.wages[t+1] = self.eco.firms.update_wages(self.balance[0], self.tradeflow[0])
         # self.utility[t] = self.eco.house.utility(self.Q_real[t, 0, 1:], self.Q_real[t, 1:, 0])
 
     def time_t_plus(self, t):
@@ -166,14 +168,14 @@ class Dynamics(object):
                                                           self.balance,
                                                           self.cashflow,
                                                           self.tradeflow
-                                                          ) / self.wages[t]
+                                                          ) / self.wages[t+1]
 
-        self.budget[t] = self.budget[t] / self.wages[t]
-        self.budget_res = np.clip(self.budget_res, 0, None) / self.wages[t]
+        self.budget[t] = self.budget[t] / self.wages[t+1]
+        self.budget_res[t+1] = np.clip(self.budget_res[t+1], 0, None) / self.wages[t+1]
         # Clipping to avoid negative almost zero values
         self.prices_net = self.eco.compute_p_net(self.prices[t + 1])
 
-        self.prods[t + 1] = self.eco.production_function(self.Q_prod[t], self.boost, self.prod_exp[t])
+        self.prods[t + 1] = self.eco.production_function(self.Q_prod[t])
 
         self.prod_exp[t + 1] = (1-self.nu) * self.prod_exp[t] + self.nu * self.prods[t+1]
 
@@ -187,7 +189,7 @@ class Dynamics(object):
         self.stocks[t + 1] = np.matmul(self.stocks[t + 1], np.diag(1 - self.eco.firms.sigma))
 
         self.mu[t], self.Q_demand[t + 1, 0, 1:], self.labour[t + 1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
+            self.eco.house.compute_demand_cons_labour_supply(self.budget_res[t + 1],
                                                              self.prices[t + 1],
                                                              )
 
@@ -195,8 +197,8 @@ class Dynamics(object):
         self.clear_all()
         # Initial conditions at t=0
         # Household
-        self.wages[0] = w0
-        self.budget_res = B0 / w0
+        self.wages[1] = w0
+        self.budget_res[1] = B0 / w0
 
         self.prods[1] = g0
         self.prod_exp[1] = (1-self.nu )* g0 + self.nu * self.prod_exp[0]
@@ -204,11 +206,11 @@ class Dynamics(object):
         self.prices[1] = p0 / w0
         self.prices_net = self.eco.compute_p_net(self.prices[1])
         self.mu[0], self.Q_demand[1, 0, 1:], self.labour[1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
+            self.eco.house.compute_demand_cons_labour_supply(self.budget_res[1],
                                                              self.prices[1]
                                                              )
 
-        self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * (g0 + self.prod_exp[0]*self.boost) + np.diagonal(s0)])
+        self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + np.diagonal(s0)])
 
         # Firms
 
@@ -234,12 +236,15 @@ class Dynamics(object):
         self.time_t(1)
         self.time_t_plus(1)
         t = 2
+        pbar = tqdm_notebook(total=self.t_max)
+        pbar.update(1)
         while t < self.t_max:
             # print(t)
             self.time_t_minus(t)
             self.time_t(t)
             self.time_t_plus(t)
             t += 1
+            pbar.update(1)
 
         # self.prods = g0
         # self.targets = t1
