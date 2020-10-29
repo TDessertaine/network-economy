@@ -89,7 +89,7 @@ def simulation(**sim_args):
     economie.init_firms(**sim_args["firms_args"])
     economie.set_quantities()
     # Création de l'objet dynamique
-    sim = dyn(t_max=5000, e=economie, rho=0)
+    sim = dyn(t_max=10000, e=economie, rho=0)
     # Dynamique
     sim.discrete_dynamics(**sim_args["dyn_args"])
     return sim

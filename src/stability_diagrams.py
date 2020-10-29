@@ -8,8 +8,8 @@ Created on Tue Sep 29 02:22:16 2020
 """
 
 """
-Functions needed to set up stability diagrams from a simulation
-with initial price just perturbed from equilibrium value:
+Functions needed to set up stability diagrams from simulations
+with an initial price just perturbed from equilibrium value:
 - classifies type of behaviour
 - plots stability diagrams for different values for the timescales
 """
@@ -108,7 +108,7 @@ def rolling_diff(sim):
     :return: Bool, for "prices converge" statement
     """
     t_diff=[]
-    for t in range(1,50):
+    for t in range(1,500):
         t_diff.append(np.amax(sim.prices[-1-t-10:-1-t])-np.amin(sim.prices[-1-t-10:-1-t]))
     df_t_diff = pd.DataFrame(t_diff[::-1])
     return df_t_diff.apply(lambda x: x.is_monotonic_decreasing)[0]

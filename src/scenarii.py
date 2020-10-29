@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
+# %%
 
-# In[ ]:
+# %%
 
 
 """
@@ -9,7 +10,7 @@ Interesting behaviours.
 """
 
 
-# In[ ]:
+# %%
 
 
 ### Oscillations
@@ -127,7 +128,7 @@ sim_args["dyn_args"] = {
     }
 
 
-# In[ ]:
+# %%
 
 
 #### Equilibre inflationnaire
@@ -183,4 +184,28 @@ sim_args["dyn_args"] = {
     't1':g_init,
     'B0':random.randint(0, 0)
     }
+
+
+# %%
+#### Chaos ??
+alpha=0.3
+alpha_p=0.05
+w=0.1
+
+beta=0.1
+beta_p=0.05
+
+b=1
+q=0
+pert = 0
+directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q)+"/PhaseDiagrams" 
+#os.mkdir(directoire)
+
+scenario="alpha="+str(alpha)+"_alpha_p="+str(alpha_p)+"_beta="+str(beta)+"_beta_p="+str(beta_p)+"_w="+str(w)
+
+values_p=np.logspace(-3,4,15)
+values_g=[np.array([i]) for i in values_p]
+
+p_init=values_p[14]
+g_init=values_g[14]
 
