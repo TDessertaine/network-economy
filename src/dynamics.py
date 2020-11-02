@@ -1,8 +1,11 @@
 import warnings
 
+from numba import jit
+
 warnings.simplefilter("ignore")
 
 import numpy as np
+from exception import InputError
 
 
 class Dynamics(object):
@@ -14,50 +17,69 @@ class Dynamics(object):
         self.prices = np.zeros((t_max + 1, self.n))
         self.wages = np.zeros(t_max + 1)
         self.prices_net = np.zeros((t_max + 1, self.n))
-        self.prods = np.zeros((t_max + 1, self.n))
-        self.targets = np.zeros((t_max + 1, self.n))
+        self.prods = np.zeros(self.n)
+        self.targets = np.zeros(self.n)
         self.stocks = np.zeros((t_max + 1, self.n))
-        self.profits = np.zeros((t_max + 1, self.n))
-        self.balance = np.zeros((t_max + 1, self.n + 1))
-        self.cashflow = np.zeros((t_max + 1, self.n))
-        self.tradeflow = np.zeros((t_max + 1, self.n + 1))
-        self.supply = np.zeros((t_max + 1, self.n + 1))
-        self.demand = np.zeros((t_max + 1, self.n + 1))
-        self.tradereal = np.zeros((t_max + 1, self.n + 1))
-        self.s_vs_d = np.zeros((t_max + 1, self.n + 1))
-        self.b_vs_c = np.zeros(t_max + 1)
+        self.profits = np.zeros(self.n)
+        self.balance = np.zeros(self.n + 1)
+        self.cashflow = np.zeros(self.n)
+        self.tradeflow = np.zeros(self.n + 1)
+        self.supply = np.zeros(self.n + 1)
+        self.demand = np.zeros(self.n + 1)
+        self.tradereal = np.zeros(self.n + 1)
+        self.s_vs_d = np.zeros(self.n + 1)
+        self.b_vs_c = 0
         self.Q_real = np.zeros((t_max + 1, self.n + 1, self.n + 1))
         self.Q_demand = np.zeros((t_max + 1, self.n + 1, self.n + 1))
         self.mu = np.zeros(t_max + 1)
         self.budget = np.zeros(t_max + 1)
-        self.budget_res = np.zeros(t_max + 1)
-        self.utility = np.zeros(t_max + 1)
+        self.budget_res = 0
         self.labour = np.zeros(t_max + 1)
 
         self.store = store
 
-    def clear_all(self):
+        self.p0 = None
+        self.w0 = None
+        self.g0 = None
+        self.t1 = None
+        self.s0 = None
+        self.B0 = None
+
+        self.run_with_current_ic = False
+        self.rho = 1
+
+    def clear_all(self, t_max=None):
+        if t_max:
+            self.t_max = t_max
         self.prices = np.zeros((self.t_max + 1, self.n))
         self.wages = np.zeros(self.t_max + 1)
-        self.prices_net = np.zeros((self.t_max + 1, self.n))
-        self.prods = np.zeros((self.t_max + 1, self.n))
-        self.targets = np.zeros((self.t_max + 1, self.n))
+        self.prices_net = np.zeros(self.n)
+        self.prods = np.zeros(self.n)
+        self.targets = np.zeros(self.n)
         self.stocks = np.zeros((self.t_max + 1, self.n))
-        self.profits = np.zeros((self.t_max + 1, self.n))
-        self.balance = np.zeros((self.t_max + 1, self.n + 1))
-        self.cashflow = np.zeros((self.t_max + 1, self.n))
-        self.tradeflow = np.zeros((self.t_max + 1, self.n + 1))
-        self.supply = np.zeros((self.t_max + 1, self.n + 1))
-        self.demand = np.zeros((self.t_max + 1, self.n + 1))
-        self.tradereal = np.zeros((self.t_max + 1, self.n + 1))
-        self.s_vs_d = np.zeros((self.t_max + 1, self.n + 1))
-        self.b_vs_c = np.zeros(self.t_max + 1)
+        self.profits = np.zeros(self.n)
+        self.balance = np.zeros(self.n + 1)
+        self.cashflow = np.zeros(self.n)
+        self.tradeflow = np.zeros(self.n + 1)
+        self.supply = np.zeros(self.n + 1)
+        self.demand = np.zeros(self.n + 1)
+        self.tradereal = np.zeros(self.n + 1)
+        self.s_vs_d = np.zeros(self.n + 1)
+        self.b_vs_c = 0
         self.Q_real = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
         self.Q_demand = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
         self.mu = np.zeros(self.t_max + 1)
         self.budget = np.zeros(self.t_max + 1)
-        self.utility = np.zeros(self.t_max + 1)
+        self.budget_res = 0
         self.labour = np.zeros(self.t_max + 1)
+
+    def update_tmax(self, t_max):
+        self.clear_all(t_max)
+        self.store = self.store
+        self.run_with_current_ic = False
+
+    def update_eco(self, e):
+        self.eco = e
 
     def time_t_minus(self, t):
         """
@@ -70,19 +92,22 @@ class Dynamics(object):
         """
 
         # Firms
-        self.supply[t] = np.concatenate(([self.labour[t]], self.eco.firms.z * self.prods[t] + self.stocks[t]))
+        self.supply = np.concatenate(([self.labour[t]], self.eco.firms.z * self.prods + self.stocks[t]))
 
-        self.targets[t + 1] = self.eco.firms.compute_targets(self.prices[t],
-                                                             self.Q_demand[t - 1],
-                                                             self.supply[t],
-                                                             self.prods[t]
-                                                             )
-        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(self.targets[t + 1],
+        self.targets = self.eco.firms.compute_targets(self.prices[t],
+                                                      self.Q_demand[t - 1],
+                                                      self.supply,
+                                                      self.prods
+                                                      )
+        self.Q_demand[t, 1:] = self.eco.firms.compute_demands_firms(self.targets,
                                                                     self.prices[t],
-                                                                    self.prices_net[t],
+                                                                    self.prices_net,
                                                                     self.eco.q,
                                                                     self.eco.b,
                                                                     self.eco.lamb_a,
+                                                                    self.eco.j_a,
+                                                                    self.eco.a_a,
+                                                                    self.eco.zeros_j_a,
                                                                     self.n
                                                                     )
 
@@ -96,42 +121,40 @@ class Dynamics(object):
         :return: side-effect
         """
 
-        self.demand[t] = np.sum(self.Q_demand[t], axis=0)
+        self.demand = np.sum(self.Q_demand[t], axis=0)
         # Supply constraint
-        self.s_vs_d[t] = np.clip(self.supply[t] / self.demand[t], None, 1)  # =1 if supply >= constraint
+        self.s_vs_d = np.clip(self.supply / self.demand, None, 1)  # =1 if supply >= constraint
 
         # Real work according to the labour supply constraint and associated budget
-        self.Q_real[t, 1:, 0] = self.Q_demand[t, 1:, 0] * self.s_vs_d[t, 0]
-        self.budget[t] = self.budget_res[t - 1] + np.sum(self.Q_real[t, 1:, 0])
+        self.Q_real[t, 1:, 0] = self.Q_demand[t, 1:, 0] * self.s_vs_d[0]
+        self.budget[t] = self.budget_res + np.sum(self.Q_real[t, 1:, 0])
 
         # Budget constraint
-        offered_cons = self.Q_demand[t, 0, 1:] * self.s_vs_d[t, 1:]
-        self.b_vs_c[t], self.Q_real[t, 0, 1:], self.budget_res[t] = self.eco.house.budget_constraint(self.budget[t],
-                                                                                                     self.prices[t],
-                                                                                                     offered_cons
-                                                                                                     )
+        offered_cons = self.Q_demand[t, 0, 1:] * self.s_vs_d[1:]
+        self.b_vs_c, self.Q_real[t, 0, 1:], self.budget_res = self.eco.house.budget_constraint(self.budget[t],
+                                                                                               self.prices[t],
+                                                                                               offered_cons
+                                                                                               )
 
         # Real trades according to the supply constraint
-        diag = np.diag(
-            self.s_vs_d[t, 1:] + offered_cons * (1 - self.b_vs_c[t]) / np.sum(self.Q_demand[t, 1:, 1:], axis=0))
+        diag = np.diag(np.clip((self.supply[1:] - self.rho * self.Q_real[t, 0, 1:]) / (self.demand[1:] - self.rho * self.Q_demand[t, 0, 1:]),
+                               None, 1))
 
-        self.Q_real[t, 1:, 1:] = np.clip(np.matmul(self.Q_demand[t, 1:, 1:],
-                                                   diag),
-                                         None,
-                                         self.Q_demand[t, 1:, 1:])
+        self.Q_real[t, 1:, 1:] = np.matmul(self.Q_demand[t, 1:, 1:],
+                                                   diag)
         # print(self.Q_real[t])
-        self.tradereal[t] = np.sum(self.Q_real[t], axis=0)
+        self.tradereal = np.sum(self.Q_real[t], axis=0)
 
         # Prices and wage update
-        self.profits[t], self.balance[t], self.cashflow[t], self.tradeflow[t] = \
+        self.profits, self.balance, self.cashflow, self.tradeflow = \
             self.eco.firms.compute_profits_balance(self.prices[t],
                                                    self.Q_real[t],
-                                                   self.supply[t],
-                                                   self.demand[t]
+                                                   self.supply,
+                                                   self.demand
                                                    )
 
-        self.wages[t] = self.eco.firms.update_wages(self.balance[t, 0], self.tradeflow[t, 0])
-        self.utility[t] = self.eco.house.utility(self.Q_real[t, 0, 1:], self.Q_real[t, 1:, 0])
+        self.wages[t] = self.eco.firms.update_wages(self.balance[0], self.tradeflow[0])
+        # self.utility[t] = self.eco.house.utility(self.Q_real[t, 0, 1:], self.Q_real[t, 1:, 0])
 
     def time_t_plus(self, t):
         """
@@ -142,54 +165,92 @@ class Dynamics(object):
         """
 
         self.prices[t + 1] = self.eco.firms.update_prices(self.prices[t],
-                                                          self.profits[t],
-                                                          self.balance[t],
-                                                          self.cashflow[t],
-                                                          self.tradeflow[t]
+                                                          self.profits,
+                                                          self.balance,
+                                                          self.cashflow,
+                                                          self.tradeflow
                                                           ) / self.wages[t]
 
         self.budget[t] = self.budget[t] / self.wages[t]
-        self.budget_res[t] = np.clip(self.budget_res[t], 0, None) / self.wages[
-            t]  # Clipping to avoid negative almost zero values
-        self.prices_net[t + 1] = self.eco.compute_p_net(self.prices[t + 1])
+        self.budget_res = np.clip(self.budget_res, 0, None) / self.wages[t]
+        # Clipping to avoid negative almost zero values
+        self.prices_net = self.eco.compute_p_net(self.prices[t + 1])
 
-        self.prods[t + 1] = self.eco.production_function(self.Q_real[t, 1:, :])
-        self.stocks[t + 1] = self.eco.firms.update_stocks(self.supply[t, 1:],
-                                                          self.tradereal[t, 1:]
+        self.prods = self.eco.production_function(self.Q_real[t, 1:, :])
+        self.stocks[t + 1] = self.eco.firms.update_stocks(self.supply[1:],
+                                                          self.tradereal[1:]
                                                           )
 
         self.mu[t], self.Q_demand[t + 1, 0, 1:], self.labour[t + 1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.budget_res[t],
+            self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
                                                              self.prices[t + 1],
                                                              )
 
-    def discrete_dynamics(self, p0, w0, g0, t1, s0, B0):
-        self.clear_all()
-        # Initial conditions at t=0
-        # Household
-        self.wages[0] = w0
-        self.budget_res[0] = B0 / w0
+    def set_initial_conditions(self, p0, w0, g0, t1, s0, B0):
+        self.p0 = p0
+        self.w0 = w0
+        self.g0 = g0
+        self.t1 = t1
+        self.s0 = s0
+        self.B0 = B0
+        self.run_with_current_ic = False
 
-        self.prods[1] = g0
-        self.stocks[1] = s0
-        self.prices[1] = p0 / w0
-        self.prices_net[1] = self.eco.compute_p_net(self.prices[1])
+    def set_initial_price(self, p0):
+        self.p0 = p0
+        self.run_with_current_ic = False
+
+    def set_initial_wage(self, w0):
+        self.w0 = w0
+        self.run_with_current_ic = False
+
+    def set_initial_prod(self, g0):
+        self.g0 = g0
+        self.run_with_current_ic = False
+
+    def set_initial_target(self, t1):
+        self.t1 = t1
+        self.run_with_current_ic = False
+
+    def set_initial_stock(self, s0):
+        self.s0 = s0
+        self.run_with_current_ic = False
+
+    def set_initial_budget(self, B0):
+        self.B0 = B0
+        self.run_with_current_ic = False
+
+    def discrete_dynamics(self):
+        # if not self.p0 or not self.w0 or not self.g0 or not self.s0 or not self.B0 or not self.t1:
+        #     raise InputError("Inital conditions must be prescribed before running the simulation. Please use "
+        #                      "the set_initial_conditions method.")
+
+        self.clear_all()
+        self.wages[0] = self.w0
+        self.budget_res = self.B0 / self.w0
+
+        self.prods = self.g0
+        self.stocks[1] = self.s0
+        self.prices[1] = self.p0 / self.w0
+        self.prices_net = self.eco.compute_p_net(self.prices[1])
         self.mu[0], self.Q_demand[1, 0, 1:], self.labour[1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.budget_res[0],
+            self.eco.house.compute_demand_cons_labour_supply(self.budget_res,
                                                              self.prices[1]
                                                              )
 
-        self.supply[1] = np.concatenate([[self.labour[1]], self.eco.firms.z * g0 + s0])
+        self.supply = np.concatenate([[self.labour[1]], self.eco.firms.z * self.g0 + self.s0])
 
         # Firms
 
-        self.targets[2] = t1
-        self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(self.targets[2],
+        self.targets = self.t1
+        self.Q_demand[1, 1:] = self.eco.firms.compute_demands_firms(self.targets,
                                                                     self.prices[1],
-                                                                    self.prices_net[1],
+                                                                    self.prices_net,
                                                                     self.eco.q,
                                                                     self.eco.b,
                                                                     self.eco.lamb_a,
+                                                                    self.eco.j_a,
+                                                                    self.eco.a_a,
+                                                                    self.eco.zeros_j_a,
                                                                     self.n
                                                                     )
 
@@ -202,3 +263,46 @@ class Dynamics(object):
             self.time_t(t)
             self.time_t_plus(t)
             t += 1
+
+        self.run_with_current_ic = True
+        self.prods = self.g0
+        self.targets = self.t1
+        self.budget_res = self.B0 / self.w0
+
+    @staticmethod
+    @jit
+    def compute_prods(e, Q_real, tmax, n, g0):
+        prods = np.zeros((tmax + 1, n))
+        prods[1] = g0
+        for t in range(1, tmax - 1):
+            prods[t + 1, :] = e.production_function(Q_real[t, 1:, :])
+        return prods
+
+    @staticmethod
+    @jit
+    def compute_profits_balance_cashflow_tradeflow(e, Q_real, Q_demand, prices, prods, stocks, labour, tmax, n):
+        supply_goods = e.firms.z * prods + stocks
+        demand = np.sum(Q_demand, axis=1)
+        profits, balance, cashflow, tradeflow = np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1)), \
+                                                np.zeros((tmax + 1, n)), np.zeros((tmax + 1, n + 1))
+        for t in range(1, tmax):
+            supply_t = np.concatenate(([labour[t]], supply_goods[t]))
+            profits[t], balance[t], cashflow[t], tradeflow[t] = e.firms.compute_profits_balance(prices[t],
+                                                                                                Q_real[t],
+                                                                                                supply_t,
+                                                                                                demand[t]
+                                                                                                )
+        return profits, balance, cashflow, tradeflow
+
+    @staticmethod
+    @jit
+    def compute_utility(e, Q_real, tmax):
+        utility = np.zeros(tmax + 1)
+        for t in range(1, tmax):
+            utility[t] = e.house.utility(Q_real[t, 0, 1:], Q_real[t, 1:, 0])
+        return utility
+
+    @staticmethod
+    @jit
+    def compute_targets(e, Q_demand, prices, tmax, n):
+        targets = np.zeros((tmax + 1, n))

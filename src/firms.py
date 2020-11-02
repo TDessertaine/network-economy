@@ -1,28 +1,61 @@
-import numba
-import numpy as np
+"""
+The ``firms`` module
+======================
 
-from exception import *
+This module declares the Firms class which model n firms.
+The attributes of this class are all the fixed parameters defining firms
+z : productivity factors
+sigma;: depreciation of stocks parameter
+alpha, alpha_p, beta, beta_p, w : inverse time-scales for feed-backs.
+The methods of this class encode the way firms update the varying quantities such as prices, productions etc...
+"""
+
+import numpy as np
+from numba import njit, float64
+
+
+@njit
+def clip_max(a, limit):
+    a_copy = a
+    for i in range(a.shape[0]):
+        if a[i] > limit:
+            a_copy[i] = limit
+        else:
+            a_copy[i] = a[i]
+    return a_copy
+
+
+@njit
+def clip_min(a, limit):
+    a_copy = a
+    for i in range(a.shape[0]):
+        if a[i] < limit:
+            a_copy[i] = limit
+        else:
+            a_copy[i] = a[i]
+    return a_copy
+
 
 spec = [
-    ('z', numba.float32[:]),
-    ('sigma', numba.float32[:]),
-    ('alpha', numba.float32),
-    ('alpha_p', numba.float32),
-    ('beta', numba.float32),
-    ('beta_p', numba.float32),
-    ('w', numba.float32)
+    ('z', float64[:]),
+    ('sigma', float64[:]),
+    ('alpha', float64),
+    ('alpha_p', float64),
+    ('beta', float64),
+    ('beta_p', float64),
+    ('w', float64)
 ]
 
 
-class Firms(object):
+class Firms:
     def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, w):
 
         if (z < 0).any():
-            raise InputError("Productivity factors must be positive")
+            raise Exception("Productivity factors must be positive")
         if (np.array([alpha, alpha_p, beta, beta_p]) < 0).any():
-            raise InputError("Inverse timescales must be positive")
+            raise Exception("Inverse timescales must be positive")
         if (sigma > 1).any() or (sigma < 0).any():
-            raise InputError("Depreciation of stocks must be between 0 and 1")
+            raise Exception("Depreciation of stocks must be between 0 and 1")
 
         # Production function parameters
         self.z = z
@@ -31,6 +64,27 @@ class Firms(object):
         self.alpha_p = alpha_p
         self.beta = beta
         self.beta_p = beta_p
+        self.w = w
+
+    def update_z(self, z):
+        self.z = z
+
+    def update_sigma(self, sigma):
+        self.sigma = sigma
+
+    def update_alpha(self, alpha):
+        self.alpha = alpha
+
+    def update_alpha_p(self, alpha_p):
+        self.alpha_p = alpha_p
+
+    def update_beta(self, beta):
+        self.beta = beta
+
+    def update_beta_p(self, beta_p):
+        self.beta_p = beta_p
+
+    def update_w(self, w):
         self.w = w
 
     def update_prices(self, prices, profits, balance, cashflow, tradeflow):
@@ -43,7 +97,7 @@ class Firms(object):
         :param tradeflow: current supply + demand
         :return:
         """
-        return prices * (1 - self.alpha_p * (profits / cashflow) - self.alpha * (balance[1:] / tradeflow[1:]))
+        return prices * np.exp(-self.alpha_p * profits / cashflow - self.alpha * balance[1:] / tradeflow[1:])
 
     def update_stocks(self, supply, sales):
         """
@@ -61,41 +115,39 @@ class Firms(object):
         :param total_labour: labour supply + labour demand
         :return: Updated wage
         """
-        return 1 - self.w * labour_balance / total_labour
+        return np.exp(- self.w * labour_balance / total_labour)
 
     def compute_targets(self, prices, Q_demand_prev, supply, prods):
         """
         Computes the production target based on profit and balance forecasts.
         :param prices: current rescaled prices
-        :param Q_demand_prev: (n+1, n+1) matrix of goods and labour demands of previous period along with consumption demands
+        :param Q_demand_prev: (n+1, n+1) matrix of goods and labour demands of previous period along with consumption
+                                demands
         :param supply: current supply
         :param prods: current production levels
         :return: Production targets for the next period
         """
         est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, Q_demand_prev, supply)
-        return prods * (
-                1 + self.beta * (est_profits / est_cashflow) - self.beta_p * (est_balance[1:] / est_tradeflow[1:]))
+        return prods * np.exp(self.beta * est_profits / est_cashflow
+                              - self.beta_p * est_balance[1:] / est_tradeflow[1:])
 
-    @staticmethod
-    @numba.jit
-    def compute_forecasts(prices, Q_demand_prev, supply):
+    def compute_forecasts(self, prices, Q_demand_prev, supply):
         """
         Computes the expected profits and balances assuming same demands as previous time
         :param prices: current wage-rescaled prices
-        :param Q_demand_prev: (n+1, n+1) matrix of goods and labour demands of previous period along with consumption demands
+        :param Q_demand_prev: (n+1, n+1) matrix of goods and labour demands of previous period along with consumption
+                                demands
         :param supply: current supply
         :return: Forecasts of gains - losses, supply - demand, gains + losses, supply + demand
         """
 
-        exp_gain = np.multiply(prices, np.sum(Q_demand_prev[:, 1:], axis=0))
-        exp_losses = np.matmul(Q_demand_prev[1:, :], np.concatenate(([1], prices)))
+        exp_gain = prices * np.sum(Q_demand_prev[:, 1:], axis=0)
+        exp_losses = np.matmul(Q_demand_prev[1:, :], np.concatenate((np.array([1]), prices)))
         exp_supply = supply
         exp_demand = np.sum(Q_demand_prev, axis=0)
         return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
 
-    @staticmethod
-    @numba.jit
-    def compute_demands_firms(targets, prices, prices_net, q, b, lamb_a, n):
+    def compute_demands_firms(self, targets, prices, prices_net, q, b, lamb_a, j_a, a_a, zeros_j_a, n):
         """
         Computes
         :param targets: production targets for the next period
@@ -103,40 +155,40 @@ class Firms(object):
         :param prices: current wages-rescaled aggregated network prices
         :param q: CES interpolator
         :param b: Return to scale parameter
-        :param lamb_a: Aggregated network-subsitution matrix
+        :param lamb_a: Aggregated network-substitution matrix
         :return: (n, n+1) matrix of labour/goods demands
         """
         if q == 0:
             demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / b)),
                                                 lamb_a)
         elif q == np.inf:
-            prices_net_aux = np.array(
-                [np.prod(np.power(np.concatenate(([1], prices)), lamb_a[i, :])) for i in range(n)])
-            demanded_products_labor = np.multiply(lamb_a,
+            prices_net_aux = np.array([
+                np.prod(np.power(j_a[i, :] * np.concatenate((np.array([1]), prices)) / a_a[i, :], a_a[i, :])[zeros_j_a[i, :]])
+                for i in range(n)
+            ])
+            demanded_products_labor = np.multiply(a_a,
                                                   np.outer(np.multiply(prices_net_aux,
                                                                        np.power(targets, 1. / b)),
-                                                           np.concatenate(([1], prices)),
+                                                           np.concatenate((np.array([1]), 1. / prices))
                                                            ))
         else:
             demanded_products_labor = np.multiply(lamb_a,
                                                   np.outer(np.multiply(np.power(prices_net, q),
                                                                        np.power(targets, 1. / b)),
-                                                           np.power(np.concatenate(([1], prices)),
+                                                           np.power(np.concatenate((np.array([1]), prices)),
                                                                     - q / (1 + q))))
         return demanded_products_labor
 
-    @staticmethod
-    @numba.jit
-    def compute_profits_balance(prices, Q, supply, demand):
+    def compute_profits_balance(self, prices, Q_real, supply, demand):
         """
         Compute the real profits and balances of firms
         :param prices: current wage-rescaled prices
-        :param Q: (n+1, n+1) matrix of exchanged goods, labour and consumption
+        :param Q_real: (n+1, n+1) matrix of exchanged goods, labour and consumption
         :param supply: current supply
         :param demand: current demand
         :return: Real wage-rescaled values of gains - losses, supply - demand, gains + losses, supply + demand
         """
-        gain = np.multiply(prices, np.sum(Q[:, 1:], axis=0))
-        losses = np.matmul(Q[1:, :], np.concatenate(([1], prices)))
+        gain = prices * np.sum(Q_real[:, 1:], axis=0)
+        losses = np.matmul(Q_real[1:, :], np.concatenate((np.array([1]), prices)))
 
         return gain - losses, supply - demand, gain + losses, supply + demand
