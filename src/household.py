@@ -15,7 +15,7 @@ spec = [
 
 class Household(object):
 
-    def __init__(self, labour, theta, gamma, phi):
+    def __init__(self, labour, theta, gamma, phi, w_p):
         """
         Set the fundamental parameters of the household
         :param labour: quantity of labour for phi --> \infty
@@ -30,6 +30,7 @@ class Household(object):
         self.thetabar = 1.
         self.gamma = gamma
         self.phi = phi
+        self.w_p = w_p
 
         # Secondary instances
         self.v_phi = np.power(self.gamma, 1. / self.phi) / np.power(self.l, 1 + 1. / self.phi)
@@ -68,19 +69,22 @@ class Household(object):
                                                                                 1. + self.phi) / (
                        1. + self.phi)
 
-    def compute_demand_cons_labour_supply(self, budget, prices):
+    def compute_demand_cons_labour_supply(self, budget, prices, balance, tradeflow, n):
+        theta = self.theta * np.exp(-self.w_p * balance / tradeflow)
+
+
         if self.phi == 1:
-            mu = .5 * (np.sqrt(np.power(budget * self.v_phi, 2)
-                               + 4 * self.v_phi * self.thetabar)
+            mu = .5*(np.sqrt(np.power(budget * self.v_phi, 2)
+                               + 4 * self.v_phi * np.sum(theta))
                        - budget * self.v_phi)
         elif self.phi == np.inf:
-            mu = self.thetabar / (self.l + budget)
+            mu = np.sum(theta) / (self.l + budget)
         else:
             raise Exception('Not coded yet')
             # x0 = np.power(self.thetabar * self.v_phi, self.phi / (1 + self.phi)) / 2.
             # mu = fsolve(self.fixed_point_mu, x0, args=(self.thetabar, self.v_phi, self.phi, budget))
 
-        return mu, self.theta / (mu * prices), np.power(mu, 1. / self.phi) / self.v_phi
+        return mu, theta / (mu * prices), np.power(mu, 1. / self.phi) / self.v_phi
 
     def budget_constraint(self, budget, prices, offered_cons):
         b_vs_c = np.minimum(budget / np.dot(offered_cons, prices), 1)
