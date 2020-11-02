@@ -69,14 +69,14 @@ class Household(object):
                                                                                 1. + self.phi) / (
                        1. + self.phi)
 
-    def compute_demand_cons_labour_supply(self, budget, prices, balance, tradeflow, n):
+    def compute_demand_cons_labour_supply(self, budget, prices, demand, balance, tradeflow, n, lda):
         theta = self.theta * np.exp(-self.w_p * balance / tradeflow)
-
+        b_new = budget + (1 - lda) * demand
 
         if self.phi == 1:
-            mu = .5*(np.sqrt(np.power(budget * self.v_phi, 2)
-                               + 4 * self.v_phi * np.sum(theta))
-                       - budget * self.v_phi)
+            mu = .5*(np.sqrt(np.power(b_new * self.v_phi, 2)
+                               + 4 * self.v_phi * np.sum(theta) * lda**2)
+                       - b_new * self.v_phi) / lda**2
         elif self.phi == np.inf:
             mu = np.sum(theta) / (self.l + budget)
         else:
@@ -84,7 +84,7 @@ class Household(object):
             # x0 = np.power(self.thetabar * self.v_phi, self.phi / (1 + self.phi)) / 2.
             # mu = fsolve(self.fixed_point_mu, x0, args=(self.thetabar, self.v_phi, self.phi, budget))
 
-        return mu, theta / (mu * prices), np.power(mu, 1. / self.phi) / self.v_phi
+        return mu, theta / (mu * prices), np.power(mu * lda, 1. / self.phi) / self.v_phi
 
     def budget_constraint(self, budget, prices, offered_cons):
         b_vs_c = np.minimum(budget / np.dot(offered_cons, prices), 1)

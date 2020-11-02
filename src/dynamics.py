@@ -192,9 +192,11 @@ class Dynamics(object):
         self.mu[t], self.Q_demand[t + 1, 0, 1:], self.labour[t+1] = \
             self.eco.house.compute_demand_cons_labour_supply(self.budget_res[t + 1],
                                                              self.prices[t + 1],
+                                                             self.demand[0],
                                                              self.balance[0],
                                                              self.tradeflow[0],
-                                                             self.n
+                                                             self.n,
+                                                             self.nu
                                                              )
 
         # self.labour[t+1] = self.eco.house.l
@@ -216,9 +218,11 @@ class Dynamics(object):
         self.mu[0], self.Q_demand[1, 0, 1:], self.labour[1] = \
             self.eco.house.compute_demand_cons_labour_supply(self.budget_res[1],
                                                              self.prices[1],
+                                                             self.demand[0],
                                                              0,
                                                              1,
-                                                             self.n
+                                                             self.n,
+                                                             self.nu
                                                              )
 
         # self.labour[1] = self.eco.house.l
