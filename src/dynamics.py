@@ -10,17 +10,28 @@ from tqdm import tqdm_notebook
 
 class Dynamics(object):
 
-    def __init__(self, e, t_max, boost, nu, store=None):
+    def __init__(self, e, t_max, step_size=None, boost=None, nu=None, store=None):
         self.eco = e
         self.t_max = t_max
         self.n = self.eco.n
-        self.prices = np.zeros((t_max + 1, self.n))
-        self.wages = np.zeros(t_max + 1)
-        self.prices_net = np.zeros((t_max + 1, self.n))
-        self.prods = np.zeros((t_max + 1, self.n))
-        self.prod_exp = np.zeros((t_max + 1, self.n))
-        self.targets = np.zeros((self.t_max + 1, self.n))
-        self.stocks = np.zeros((t_max + 1, self.n, self.n))
+        if step_size:
+            self.step_s = step_size
+        else:
+            eps = self.eco.get_eps_cal()
+            if eps >= 5:
+                self.step_s = 1
+            elif 5 > eps >= 0.1:
+                self.step_s = 1
+            else:
+                self.step_s = np.power(10, np.floor(np.log10(eps)))
+                
+        self.prices = np.zeros(((t_max + 1)/self.step_s, self.n))
+        self.wages = np.zeros((t_max + 1)/self.step_s)
+        self.prices_net = np.zeros(((t_max + 1)/self.step_s, self.n))
+        self.prods = np.zeros(((t_max + 1)/self.step_s, self.n))
+        self.prod_exp = np.zeros(((t_max + 1)/self.step_s, self.n))
+        self.targets = np.zeros(((t_max + 1)/self.step_s, self.n))
+        self.stocks = np.zeros(((t_max + 1)/self.step_s, self.n, self.n))
         self.profits = np.zeros(self.n)
         self.balance = np.zeros(self.n + 1)
         self.cashflow = np.zeros(self.n)
@@ -30,28 +41,28 @@ class Dynamics(object):
         self.tradereal = np.zeros(self.n + 1)
         self.s_vs_d = np.zeros(self.n + 1)
         self.b_vs_c = 0
-        self.Q_exchange = np.zeros((t_max + 1, self.n + 1, self.n + 1))
-        self.Q_demand = np.zeros((t_max + 1, self.n + 1, self.n + 1))
-        self.Q_opt = np.zeros((t_max + 1, self.n, self.n+1))
-        self.Q_prod = np.zeros((t_max + 1, self.n, self.n + 1))
-        self.Q_used = np.zeros((t_max + 1, self.n, self.n + 1))
-        self.mu = np.zeros(t_max + 1)
-        self.budget = np.zeros(t_max + 1)
-        self.budget_res = np.zeros(t_max + 1)
-        self.labour = np.zeros(t_max + 1)
+        self.Q_exchange = np.zeros(((t_max + 1)/self.step_s, self.n + 1, self.n + 1))
+        self.Q_demand = np.zeros(((t_max + 1)/self.step_s, self.n + 1, self.n + 1))
+        self.Q_opt = np.zeros(((t_max + 1)/self.step_s, self.n, self.n+1))
+        self.Q_prod = np.zeros(((t_max + 1)/self.step_s, self.n, self.n + 1))
+        self.Q_used = np.zeros(((t_max + 1)/self.step_s, self.n, self.n + 1))
+        self.mu = np.zeros((t_max + 1)/self.step_s)
+        self.budget = np.zeros((t_max + 1)/self.step_s)
+        self.budget_res = np.zeros((t_max + 1)/self.step_s)
+        self.labour = np.zeros((t_max + 1)/self.step_s)
 
         self.store = store
         self.boost = boost
         self.nu = nu
 
     def clear_all(self):
-        self.prices = np.zeros((self.t_max + 1, self.n))
-        self.wages = np.zeros(self.t_max + 1)
+        self.prices = np.zeros(((self.t_max + 1)/self.step_s, self.n))
+        self.wages = np.zeros((self.t_max + 1)/self.step_s)
         self.prices_net = np.zeros(self.n)
-        self.prods = np.zeros((self.t_max + 1, self.n))
-        self.prod_exp = np.zeros((self.t_max + 1, self.n))
-        self.targets = np.zeros((self.t_max + 1, self.n))
-        self.stocks = np.zeros((self.t_max + 1, self.n, self.n))
+        self.prods = np.zeros(((self.t_max + 1)/self.step_s, self.n))
+        self.prod_exp = np.zeros(((self.t_max + 1)/self.step_s, self.n))
+        self.targets = np.zeros(((self.t_max + 1)/self.step_s, self.n))
+        self.stocks = np.zeros(((self.t_max + 1)/self.step_s, self.n, self.n))
         self.profits = np.zeros(self.n)
         self.balance = np.zeros(self.n + 1)
         self.cashflow = np.zeros(self.n)
@@ -61,15 +72,15 @@ class Dynamics(object):
         self.tradereal = np.zeros(self.n + 1)
         self.s_vs_d = np.zeros(self.n + 1)
         self.b_vs_c = 0
-        self.Q_exchange = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
-        self.Q_demand = np.zeros((self.t_max + 1, self.n + 1, self.n + 1))
-        self.Q_opt = np.zeros((self.t_max + 1, self.n, self.n + 1))
-        self.Q_prod = np.zeros((self.t_max + 1, self.n, self.n + 1))
-        self.Q_used = np.zeros((self.t_max + 1, self.n, self.n + 1))
-        self.mu = np.zeros(self.t_max + 1)
-        self.budget = np.zeros(self.t_max + 1)
-        self.budget_res = np.zeros(self.t_max + 1)
-        self.labour = np.zeros(self.t_max + 1)
+        self.Q_exchange = np.zeros(((self.t_max + 1)/self.step_s, self.n + 1, self.n + 1))
+        self.Q_demand = np.zeros(((self.t_max + 1)/self.step_s, self.n + 1, self.n + 1))
+        self.Q_opt = np.zeros(((self.t_max + 1)/self.step_s, self.n, self.n + 1))
+        self.Q_prod = np.zeros(((self.t_max + 1)/self.step_s, self.n, self.n + 1))
+        self.Q_used = np.zeros(((self.t_max + 1)/self.step_s, self.n, self.n + 1))
+        self.mu = np.zeros((self.t_max + 1)/self.step_s)
+        self.budget = np.zeros((self.t_max + 1)/self.step_s)
+        self.budget_res = np.zeros((self.t_max + 1)/self.step_s)
+        self.labour = np.zeros((self.t_max + 1)/self.step_s)
 
     def time_t_minus(self, t):
         """
@@ -250,16 +261,16 @@ class Dynamics(object):
 
         self.time_t(1)
         self.time_t_plus(1)
-        t = 2
-        pbar = tqdm_notebook(total=self.t_max)
+        t = 2 * self.step_s
+        pbar = tqdm_notebook(total=(self.t_max + 1)/self.step_s)
         pbar.update(1)
-        while t < self.t_max:
+        while t < (self.t_max + 1)/self.step_s:
             # print(t)
             self.time_t_minus(t)
             self.time_t(t)
             self.time_t_plus(t)
-            t += 1
-            pbar.update(1)
+            t += self.step_s
+            pbar.update(self.step_s)
 
         # self.prods = g0
         # self.targets = t1
