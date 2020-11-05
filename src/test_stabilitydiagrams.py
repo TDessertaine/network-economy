@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import simulations
 import stability_diagrams as sd
+import phase_diagrams as pdg
 
 
 # %%
@@ -25,15 +26,22 @@ alpha=0.3
 alpha_p=0.05
 w=0.1
 
-beta=0.6
+beta=0.1
 beta_p=0.05
 
-b=1.0
-q=0.0
-pert=rd.uniform(-10**(-6),10**(-6))
+b=1
+q=0
+pert = 0
+directoire="/mnt/research-live/user/cboissel/network-economy/2020_09_04_Scenarii_b="+str(b)+"_q="+str(q)+"/PhaseDiagrams" 
+#os.mkdir(directoire)
 
-p_init=0.5
-g_init=np.array([2])
+scenario="alpha="+str(alpha)+"_alpha_p="+str(alpha_p)+"_beta="+str(beta)+"_beta_p="+str(beta_p)+"_w="+str(w)
+
+values_p=np.logspace(-3,4,15)
+values_g=[np.array([i]) for i in values_p]
+
+p_init=values_p[14]
+g_init=values_g[14]
 
 sim_args = simulations.variables_simulation(alpha, alpha_p, beta, beta_p, w, q, b, p_init, g_init, pert)
 sim = simulations.simulation(**sim_args)
@@ -44,7 +52,11 @@ print("last price", sim.prices[-1][0])
 
 
 # %%
-pert
+print("div?", pdg.detect_div(sim))
+print("conv?", pdg.detect_conv(sim))
+print("oscillates?", pdg.detect_periodicity(sim))
+print("crises?", pdg.detect_crises(sim))
+print(pdg.phase_classification(sim))
 
 # %%
 lag=1
@@ -60,7 +72,7 @@ ax.set_title("Prices of the firm's production")
 ax.set_xlabel('Time')
 ax.set_ylabel('P1')
 
-ax.plot(sim.prices[1:-1])
+ax.plot(sim.prices[-5000:-1])
 
 plt.axhline(y=p_eq_0,linewidth=1.3, alpha=1, color="green", label="p=p_eq")
 #plt.axhline(y=p_eq_1,linewidth=1.3, alpha=1, color="red", label="p=p_eq")
@@ -71,6 +83,10 @@ ax.set_yscale("log")
 #plt.grid(True)
 plt.show()
 
+
+# %%
+# %matplotlib notebook
+plt.plot(np.fft.fft(sim.prices[1:-1]))
 
 # %%
 # %matplotlib notebook

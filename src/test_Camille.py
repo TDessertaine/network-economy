@@ -14,7 +14,7 @@ import firms
 import household
 
 
-#%%
+# %%
 
 # SIMULATION
 
@@ -71,7 +71,7 @@ dyn_args={
 state="nd"
 compteur=5
 
-# %% %% SIMULATION
+# %%%% SIMULATION
 # Création objet classe Economy
 economie=eco(**econ_args)
 
@@ -90,12 +90,12 @@ sim = dyn(t_max=10000,e=economie)
 sim.discrete_dynamics(**dyn_args)
 
 
-#%%
+# %%
 
 # EQUILIBRIUM
 
 
-#%%  COMPUTE EQUILIBRIUM
+# %% COMPUTE EQUILIBRIUM
 
 sim.eco.compute_eq()
 print("P_EQ", sim.eco.p_eq)
@@ -118,7 +118,7 @@ if sim.eco.b!=1 and sim.eco.q>0:
     prod=[sim.Q_demand[i,1,1]+sim.Q_demand[i,1,0] for i in range(len(sim.Q_demand))]
     print(prod[-1])
 
-#%% PLOT EQUILIBRIUM ON PRICES 
+# %% PLOT EQUILIBRIUM ON PRICES
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -144,7 +144,7 @@ directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneF
 
 #fig.savefig(directoire)
 
-#%% PLOT EQUILIBRIUM ON PRODUCTION 
+# %% PLOT EQUILIBRIUM ON PRODUCTION
 
 import matplotlib as mpl
 #mpl.use('Qt5Agg')
@@ -172,7 +172,7 @@ directoire="/Users/boisselcamille/Documents/Stage_Econophysix/networks_code/OneF
 #fig.savefig(directoire)
 
 
-#%% PLOT EQUILIBRE INFLATIONNAIRE 
+# %% PLOT EQUILIBRE INFLATIONNAIRE
 
 ### Coefficient d'update des prix
 update_labour=[np.exp(-sim.eco.firms.w*(sim.labour[i-1]-sim.Q_demand[i-1][0,1])/sim.labour[i-1]) for i in range(1,len(sim.Q_real))]
@@ -215,7 +215,7 @@ couts_rel=[sim.prices[i]*sim.Q_real[i,1,1]-sim.Q_real[i,1,0] for i in range(1,le
 
 
 
-#%% VERIFICATION HYPOTHESE SATISFACTION DU MENAGE IN EQ INFL vs IN EQ GENERAL
+# %% VERIFICATION HYPOTHESE SATISFACTION DU MENAGE IN EQ INFL vs IN EQ GENERAL
 
 utilite=[sim.eco.house.utility(sim.Q_real[i][1,0],sim.Q_real[i][0,1]) for i in range(len(sim.Q_real))]
 
@@ -237,7 +237,7 @@ ax.set_yscale("log")
 #plt.grid(True)
 plt.show()
 
-#%% EXPERIENCE PIB
+# %% EXPERIENCE PIB
 
 pib_prod=[]
 
