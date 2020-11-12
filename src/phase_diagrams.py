@@ -102,7 +102,6 @@ def sin_fit(x_data, y_data):
     guess_freqs = [ff[int(np.where(Fyy_trunc==i)[0])+1] for i in np.sort(Fyy_trunc_peaks)[-nbr_freq:]]
     guess_offset = np.mean(y_data)
     guess_amp = np.max(y_data)-guess_offset
-    print(nbr_freq)
     if nbr_freq==0:
         return None 
     elif nbr_freq==1:
@@ -170,3 +169,20 @@ def phase_classification(sim):
             else:
                 return 4
         
+def phase_classification_fit(sim):
+    if detect_div(sim):
+        return 0
+    else:
+        if detect_conv(sim): # TODO : peut-être insérer différentiation eq inflationnaire / eq compétitif
+            return 1
+        else:
+            if detect_periodicity_fit(sim):
+                if detect_crises(sim):
+                    return 3
+                else:
+                    return 2
+            elif detect_crises(sim):
+                return 3
+
+            else:
+                return 4
