@@ -165,7 +165,7 @@ class Dynamics(object):
             self.q_opt[:, 1:] - (self.stocks[t] - np.diagonal(self.stocks[t]) * np.eye(self.n)),
             0)
 
-    def exchanges_and_updates(self, t):
+    def exchanges_and_updates(self, t, fraction):
         """
         Performs all the actions the Exchanges & Trades step. Hiring occurs first, upon which the household gets paid.
         It allows it to compute its current budget and adapt its consumption target accordingly. Then, we move on to
@@ -179,11 +179,12 @@ class Dynamics(object):
         self.q_exchange[t, 1:, 0] = self.q_demand[t, 1:, 0] * np.minimum(1, self.labour[t] / np.sum(
             self.q_demand[t, 1:, 0]))
 
-        self.budget = self.savings + np.sum(self.q_exchange[t, 1:, 0])
+        working_hours = np.sum(self.q_exchange[t, 1:, 0])
+        self.budget = self.savings + working_hours
 
         self.q_demand[t, 0, 1:] = self.q_demand[t, 0, 1:] * (self.nu + (1 - self.nu) *
-                                                             np.minimum(1, self.budget /
-                                                                        (self.savings + self.labour[t])))
+                                                             np.minimum(1, (self.savings + fraction * working_hours) /
+                                                                        (self.savings + fraction * self.labour[t])))
 
         # (2) Trades
         self.demand = np.sum(self.q_demand[t], axis=0)
@@ -192,7 +193,7 @@ class Dynamics(object):
                                               np.diag(np.minimum(self.supply[1:] / self.demand[1:], 1))
                                               )
 
-        self.q_exchange[t, 0, 1:] = self.q_exchange[t, 0, 1:] * np.minimum(1, self.budget / (
+        self.q_exchange[t, 0, 1:] = self.q_exchange[t, 0, 1:] * np.minimum(1, (self.savings + fraction * working_hours) / (
             np.dot(self.q_exchange[t, 0, 1:], self.prices[t])))
 
         self.savings = self.budget - np.dot(self.prices[t], self.q_exchange[t, 0, 1:])
@@ -219,7 +220,7 @@ class Dynamics(object):
                                                           self.step_s
                                                           )
 
-    def production(self, t):
+    def production(self, t, fraction):
         """
         Performs all the actions of the Production Step. Production for the next time-step starts, inventories
         are compiled and monetary quantities are rescaled by the wage value. Then, the household then performs its
@@ -250,14 +251,15 @@ class Dynamics(object):
         # The household performs its optimization to set its consumption target and its labour supply for the next
         # period
         self.q_demand[t + 1, 0, 1:], self.labour[t + 1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.savings,
+            self.eco.house.compute_demand_cons_labour_supply(fraction,
+                                                             self.savings,
                                                              self.prices[t + 1],
                                                              self.supply[0],
                                                              self.demand[0],
                                                              self.step_s
                                                              )
 
-    def discrete_dynamics(self):
+    def discrete_dynamics(self, fraction):
         """
         Main function to run the dynamics of the Network Economy ABM.
         :return: Side-effect
@@ -273,7 +275,7 @@ class Dynamics(object):
         self.prices[1] = self.p0 / self.w0
         self.prices_non_res[1] = self.p0
         self.q_demand[1, 0, 1:], self.labour[1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.savings,
+            self.eco.house.compute_demand_cons_labour_supply(fraction, self.savings,
                                                              self.prices[1],
                                                              1,
                                                              1,
@@ -294,14 +296,14 @@ class Dynamics(object):
             0)
 
         # Carrying on with Exchanges & Trades and Production with every needed quantities known.
-        self.exchanges_and_updates(1)
-        self.production(1)
+        self.exchanges_and_updates(1, fraction)
+        self.production(1, fraction)
         # End of first time-step
         t = 2
         while t < int((self.t_max + 1) / self.step_s - 1):
             self.planning(t)
-            self.exchanges_and_updates(t)
-            self.production(t)
+            self.exchanges_and_updates(t, fraction)
+            self.production(t, fraction)
             t += 1
 
         # The current information stocked in the dynamics class are in accordance with the provided initial conditions.

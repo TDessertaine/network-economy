@@ -72,7 +72,7 @@ class Household(object):
                                                                                 1. + self.phi) / (
                        1. + self.phi)
 
-    def compute_demand_cons_labour_supply(self, savings, prices, labour_supply, labour_demand, step_s):
+    def compute_demand_cons_labour_supply(self, fraction, savings, prices, labour_supply, labour_demand, step_s):
         """
         Optimization sequence carried by the household.
         :param savings: wage-rescaled savings for the next period,
@@ -84,22 +84,22 @@ class Household(object):
         """
 
         # Update preferences taking confidence effects into account
-        theta = self.theta * np.exp(- self.omega_p * step_s * (labour_supply - labour_demand) /
-                                    (labour_supply + labour_demand))
+        f = fraction * np.minimum(np.exp(- self.omega_p * step_s * (labour_supply - labour_demand) /
+                                    (labour_supply + labour_demand)), 1)
 
         if self.phi == 1:
             mu = .5 * (np.sqrt(np.power(savings * self.v_phi, 2)
-                               + 4 * self.v_phi * np.sum(theta))
-                       - savings * self.v_phi)
+                               + 4 * f**2 * self.v_phi * np.sum(self.theta))
+                       - savings * self.v_phi) / f**2
         elif self.phi == np.inf:
-            mu = np.sum(theta) / (self.l_0 + savings)
+            mu = np.sum(self.theta) / (self.l_0 * f + savings)
         else:
             # (TODO)
             raise Exception('Not coded yet')
             # x0 = np.power(self.thetabar * self.v_phi, self.phi / (1 + self.phi)) / 2.
             # mu = fsolve(self.fixed_point_mu, x0, args=(self.thetabar, self.v_phi, self.phi, budget))
 
-        return theta / (mu * prices), np.power(mu, 1. / self.phi) / self.v_phi
+        return self.theta / (mu * prices), np.power(mu * f, 1. / self.phi) / self.v_phi
 
     @staticmethod
     def fixed_point_mu(x, p):
