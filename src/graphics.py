@@ -95,7 +95,7 @@ class PlotlyDynamics:
             self.utility, self.budget = self.dyn.compute_utility_budget(self.dyn.eco,
                                                                         self.dyn.q_exchange,
                                                                         self.dyn.prices,
-                                                                        self.dyn.wages,
+                                                                        self.dyn.wage,
                                                                         self.dyn.t_max,
                                                                         self.dyn.step_s,
                                                                         self.dyn.B0)
@@ -118,7 +118,7 @@ class PlotlyDynamics:
             self.utility, self.budget = self.dyn.compute_utility_budget(self.dyn.eco,
                                                                         self.dyn.q_exchange,
                                                                         self.dyn.prices,
-                                                                        self.dyn.wages,
+                                                                        self.dyn.wage,
                                                                         self.dyn.t_max,
                                                                         self.dyn.step_s,
                                                                         self.dyn.B0)
@@ -138,7 +138,7 @@ class PlotlyDynamics:
         self.utility, self.budget = self.dyn.compute_utility_budget(self.dyn.eco,
                                                                     self.dyn.q_exchange,
                                                                     self.dyn.prices,
-                                                                    self.dyn.wages,
+                                                                    self.dyn.wage,
                                                                     self.dyn.t_max,
                                                                     self.dyn.step_s,
                                                                     self.dyn.B0)
@@ -179,7 +179,7 @@ class PlotlyDynamics:
                                      mode='lines'),
                           row=2, col=1)
             fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                     y=self.dyn.wages[1:-1] - 1,
+                                     y=self.dyn.wage[1:-1] - 1,
                                      mode='lines'),
                           row=2, col=2)
             fig.update_layout(showlegend=False)
@@ -204,14 +204,13 @@ class PlotlyDynamics:
                                      mode='lines'),
                           row=2, col=1)
             fig.add_trace(go.Scatter(x=np.arange(self.dyn.t_max),
-                                     y=self.dyn.wages[1:-1],
+                                     y=self.dyn.wage[1:-1],
                                      mode='lines'),
                           row=2, col=2)
             fig.update_layout(showlegend=False)
             fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGrey')
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGrey', exponentformat="power",
                              showexponent='last')
-
         self.fig_house = fig
 
     def plotNetworkEigenvalues(self):
@@ -385,7 +384,7 @@ class PlotlyDynamics:
 
         self.fig_network_raw = fig
 
-    def plotFirmsObserv(self):
+    def plotFirmsObserv(self, replot=False):
         """
         Generates plot of time-series for rescale profits and production surplus.
         :return: Side effect.
