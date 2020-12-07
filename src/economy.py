@@ -90,7 +90,7 @@ class Economy:
         """
         self.house = Household(l_0, theta, gamma, phi, omega_p, f, r)
 
-    def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
+    def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, omega, omega_pp=None):
         """
         Initialize a firms object as instance of economy class. Refer to firms class.
         :param z: Productivity factors,
@@ -102,7 +102,7 @@ class Economy:
         :param omega: Log-elasticity of wages' growth rates against labor-market tensions.
         :return: Initializes firms class with given parameters.
         """
-        self.firms = Firms(z, sigma, alpha, alpha_p, beta, beta_p, omega)
+        self.firms = Firms(z, sigma, alpha, alpha_p, beta, beta_p, omega, omega_pp)
 
     # Setters for class instances
 
@@ -228,10 +228,9 @@ class Economy:
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[:, 0])
         self.mu_eq = np.power(np.power(self.house.gamma, 1./self.house.phi) * np.sum(self.house.theta) *
-                              (1 - (1 - self.house.f) * (1 + self.house.r)) /
-                              (self.house.f * np.power(self.house.l_0, 1 + 1./self.house.phi)),
-                              self.house.phi / (1 + self.house.phi))
-        self.kappa = self.house.theta / self.mu_eq
+                              (1 - (1 - self.house.f) * (1 + self.house.r)),
+                              self.house.phi / (1 + self.house.phi)) / self.house.f
+        self.kappa = self.house.l_0 * self.house.theta / self.mu_eq
         self.zeros_j_a = self.j_a != 0
 
     def get_eps_cal(self):
@@ -255,7 +254,8 @@ class Economy:
         beta = self.firms.beta
         beta_p = self.firms.beta_p
         omega = self.firms.omega
-        self.init_firms(z_n, sigma, alpha, alpha_p, beta, beta_p, omega)
+        omega_pp = self.firms.omega_pp
+        self.init_firms(z_n, sigma, alpha, alpha_p, beta, beta_p, omega, omega_pp)
         self.set_quantities()
         self.compute_eq()
 
@@ -416,9 +416,9 @@ class Economy:
                               rcond=None)[0]
                     self.g_eq = np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(u, self.q))
 
-        self.labour_eq = np.power(self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
+        self.labour_eq = np.power(self.mu_eq * self.house.f / self.house.gamma, 1. / self.house.phi) * self.house.l_0
         self.cons_eq = self.kappa / self.p_eq
-        self.b_eq = np.sum(self.house.theta) / self.mu_eq
+        self.b_eq = np.sum(self.house.theta) / (self.mu_eq * self.house.f)
         self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(
             self.labour_eq / self.house.l_0,
             self.house.phi + 1) / (

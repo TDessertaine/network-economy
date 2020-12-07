@@ -232,6 +232,8 @@ class Dynamics(object):
         # (3) Prices and Wage updates
         self.wages[t + 1] = self.eco.firms.update_wages(self.supply[0] - self.demand[0],
                                                         self.supply[0] + self.demand[0],
+                                                        self.gains - self.losses,
+                                                        self.gains + self.losses,
                                                         self.step_s)
 
         self.prices[t + 1] = self.eco.firms.update_prices(self.prices[t],
@@ -268,7 +270,7 @@ class Dynamics(object):
         self.prices[t + 1] = self.prices[t + 1] / self.wages[t + 1]
         self.budget = self.budget / self.wages[t + 1]
         self.savings = (1 + self.eco.house.r) * np.maximum(self.savings, 0) / self.wages[t + 1]
-        # Clipping to avoid negative almost zero values
+        # Clipping to avoid negative almost zero values and applying savings growth rate.
 
         # The household performs its optimization to set its consumption target and its labour supply for the next
         # period
@@ -289,7 +291,7 @@ class Dynamics(object):
 
         # Setting initial conditions
         self.wages[1] = self.w0
-        self.savings = self.B0 / self.w0
+        self.savings = (1+self.eco.house.r) * self.B0 / self.w0
 
         self.prods[1] = self.g0
         self.stocks[1] = self.s0

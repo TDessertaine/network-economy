@@ -94,19 +94,19 @@ class Household(object):
                                     (labour_supply + labour_demand))
 
         if self.phi == 1:
-            mu = .5 * (np.sqrt(np.power(savings * self.v_phi, 2)
-                               + 4 * self.v_phi * np.sum(theta))
-                       - savings * self.v_phi) / self.f
+            mu = self.gamma * (np.sqrt(savings ** 2
+                                       + 4 * self.gamma * np.sum(theta) * self.l_0 ** 2)
+                               - savings * self.v_phi) / (2 * self.f * self.l_0)
         elif self.phi == np.inf:
-            mu = np.sum(theta) / (self.l_0 + savings) / self.f
+            mu = np.sum(theta) * self.l_0 / (self.l_0 + savings) / self.f
         else:
             mu = fsolve(self.fixed_point_mu,
                         np.power(np.sum(theta) * self.v_phi, self.phi / (1 + self.phi)) / 2.,
                         args=(np.sum(theta), self.v_phi, self.phi, self.f, savings))
 
-        return theta / (mu * prices), np.power(mu * self.f, 1. / self.phi) / self.v_phi
+        return theta * self.l_0 / (mu * prices), np.power(mu * self.f / self.gamma, 1. / self.phi) * self.l_0
 
     @staticmethod
     def fixed_point_mu(x, p):
         thetabar, vphi, phi, f, savings = p
-        return np.power(x * f, 1+1./phi) / vphi + savings * x * f - thetabar
+        return np.power(x * f, 1 + 1. / phi) / vphi + savings * x * f - thetabar

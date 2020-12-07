@@ -27,7 +27,7 @@ import numpy as np
 
 
 class Firms:
-    def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
+    def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, omega, omega_pp=None):
 
         if (z < 0).any():
             raise Exception("Productivity factors must be positive.")
@@ -44,6 +44,7 @@ class Firms:
         self.beta = beta  # Log-elasticity of productions' growth rates against profits
         self.beta_p = beta_p  # Log-elasticity of productions' growth rates against surplus
         self.omega = omega  # Log-elasticity of wages' growth rates against labor-market tensions
+        self.omega_pp = omega_pp if omega_pp else 0
 
     # Setters for class instances
 
@@ -82,7 +83,7 @@ class Firms:
         return prices * np.exp(- 2 * step_s * (self.alpha_p * profits / cashflow +
                                            self.alpha * balance[1:] / tradeflow[1:]))
 
-    def update_wages(self, labour_balance, total_labour, step_s):
+    def update_wages(self, labour_balance, total_labour, profits, cashflow, step_s):
         """
         Updates wages according to the observed tensions in the labour market.
         :param labour_balance: labour supply - labour demand,
@@ -90,7 +91,15 @@ class Firms:
         :param step_s: size of time-step,
         :return: Updated wage for the next period.
         """
-        return np.exp(- 2 * self.omega * step_s * (labour_balance / total_labour))
+        pb = profits/cashflow
+        mean = np.mean(pb[pb > 0])
+        #print(mean)
+        term = 2 * self.omega_pp * mean if mean else 0
+        #print(term)
+        if not np.isnan(term):
+            return np.exp(- 2 * self.omega * step_s * (labour_balance / total_labour) + term)
+        else:
+            return np.exp(- 2 * self.omega * step_s * (labour_balance / total_labour))
 
     def compute_targets(self, prices, q_forecast, supply, prods, step_s):
         """
