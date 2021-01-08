@@ -17,7 +17,7 @@ class Dynamics(object):
         self.prices_net = np.zeros(t_max + 1)
         self.prods = np.zeros(self.n)
         self.targets = np.zeros(self.n)
-        self.stocks = np.zeros(t_max + 1)  
+        self.stocks = np.zeros(t_max + 1)
         self.prod_exp = np.zeros((self.t_max + 1, self.n))
         self.profits = np.zeros(self.n)
         self.balance = np.zeros(self.n + 1)

@@ -313,7 +313,7 @@ class Economy:
         """
         if self.b != 1:
             if self.q == 0:
-                self.p_eq = self.j0*1/(self.firms.z*(self.house.kappa/self.j0)**(self.b-1)-self.j1)
+                self.p_eq = self.j0*1/(self.firms.z*((self.house.kappa/self.j0)**(self.b-1))-self.j1)
                 self.g_eq = (self.house.kappa/self.j0)**self.b
             elif self.q>0 and self.q != np.inf:
                 m_cal=self.firms.z**(self.zeta)-self.lamb_a[1]
