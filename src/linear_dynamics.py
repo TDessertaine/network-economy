@@ -106,12 +106,12 @@ class LinearDynamics:
                          np.power(self.eco.g_eq,
                                   (1 - self.eco.b) / self.eco.b),
                          )
-        fst = self.alpha * self.p_over_g + self.omega * np.dot(np.diag(self.eco.p_eq), outer) \
+        fst = self.alpha * self.p_over_g - self.omega * np.dot(np.diag(self.eco.p_eq), outer) \
               / (self.eco.b * self.eco.labour_eq)
         snd = np.dot(np.diag(self.eco.p_eq / (self.z * self.eco.g_eq)),
                      self.alphap * self.M1.T / self.eco.b - self.M2.T)
         thd = - self.alphap * np.dot(np.diag(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)), outer) / \
-              (self.eco.house.f * self.eco.b * self.eco.b_eq)
+              (self.eco.b * self.eco.b_eq)
 
         return fst + snd + thd
 
