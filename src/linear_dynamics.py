@@ -79,7 +79,7 @@ class LinearDynamics:
 
     def matrix_F1(self):
         return np.block([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
-                          self.forecast_block_Y1(), np.ones((self.n, 1))],
+                          self.forecast_block_Y1(), np.zeros((self.n, 1))],
                          [np.zeros((self.n, self.n)), np.eye(self.n), np.zeros((self.n, self.n)),
                           np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
                          [np.zeros((self.n, self.n)), np.zeros((self.n, self.n)), np.eye(self.n),
@@ -92,7 +92,7 @@ class LinearDynamics:
 
     def matrix_F2(self):
         return np.block([[np.zeros((self.n, 2 * self.n)), np.block([self.forecast_block_X2(), self.forecast_block_Y2(),
-                                                                    self.forecast_block_Z2().T])],
+                                                                    self.forecast_block_Z2().reshape((self.n, 1))])],
                          [np.zeros((self.n ** 2 + 2 * self.n + 1, 2 * self.n)),
                           np.zeros((self.n ** 2 + 2 * self.n + 1, self.n ** 2 + self.n + 1))]]
                         )
