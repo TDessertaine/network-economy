@@ -62,7 +62,7 @@ class LinearDynamics:
 
     def forecast_block_Y1(self):
         return -self.betap * np.sum([np.kron(self.canonical_Mn(self.n, i, i), self.canonical_Rn(self.n, i)) / self.z[i]
-                                     for i in range(self.n)])
+                                     for i in range(self.n)], axis=0)
 
     def forecast_block_X2(self):
         return - (self.beta + self.betap) * np.diag(self.eco.cons_eq / (self.z * self.eco.p_eq))
