@@ -36,8 +36,8 @@ class LinearDynamics:
         tmp_mat = np.dot(np.diag(np.power(self.eco.g_eq,
                                           (1 - self.eco.b) / self.eco.b)),
                          self.eco.lamb)
-        self.M1 = np.dot(np.dot(tmp_diag3, tmp_diag1 - tmp_mat), 1. / tmp_diag3)
-        self.M2 = np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b), 1. / (tmp_diag3 * tmp_diag2))
+        self.M1 = np.dot(np.dot(tmp_diag3, tmp_diag1 - tmp_mat), np.diag(1. / np.diag(tmp_diag3)))
+        self.M2 = np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b), np.diag(1./np.diag(tmp_diag3 * tmp_diag2)))
         self.p_over_g = np.diag(self.eco.p_eq / self.eco.g_eq)
         self.g_over_p = np.diag(self.eco.g_eq / self.eco.p_eq)
 
