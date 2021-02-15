@@ -41,9 +41,14 @@ class LinearDynamics:
         self.p_over_g = np.diag(self.eco.p_eq / self.eco.g_eq)
         self.g_over_p = np.diag(self.eco.g_eq / self.eco.p_eq)
 
-    def matrix_Q(self):
+    def matrix_Q1(self):
         return np.block([[np.eye(self.n)],
                          [np.zeros((self.n ** 2 + 3 * self.n + 1, self.n))]]
+                        )
+
+    def matrix_Q2(self):
+        return np.block([[np.eye(self.n)],
+                         [np.zeros((self.n ** 2 + 2 * self.n + 1, self.n))]]
                         )
 
     def matrix_P(self):
@@ -99,7 +104,7 @@ class LinearDynamics:
 
     def forecast_matrix(self):
         return np.block([[self.matrix_F1(), self.matrix_F2()],
-                         [self.matrix_Q().T, np.zeros((self.n, self.n ** 2 + 3 * self.n + 1))]])
+                         [self.matrix_Q2().T, np.zeros((self.n, self.n ** 2 + 3 * self.n + 1))]])
 
     def fixed_shortage_block_A(self):
         outer = np.outer(self.eco.j0 *
@@ -180,7 +185,7 @@ class LinearDynamics:
 
     def fixed_shortage(self):
         return np.block([[self.matrix_Sf(), np.zeros((self.n ** 2 + 4 * self.n + 1, self.n))],
-                         [self.matrix_P(), self.matrix_Q()]])
+                         [self.matrix_P(), self.matrix_Q1()]])
 
     def fixed_dynamical(self):
         return np.dot(self.forecast_matrix(), self.fixed_shortage())
