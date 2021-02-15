@@ -86,8 +86,8 @@ class LinearDynamics:
                           np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
                          [np.zeros((self.n ** 2, self.n)), np.zeros((self.n ** 2, self.n)),
                           np.zeros((self.n ** 2, self.n)), np.eye(self.n ** 2), np.zeros((self.n ** 2, 1))],
-                         [np.zeros(self.n), np.zeros(self.n), np.zeros(self.n),
-                          np.zeros(self.n ** 2), 1]
+                         [np.zeros((1, self.n)), np.zeros((1, self.n)), np.zeros((1, self.n)),
+                          np.zeros((1, self.n ** 2)), 1]
                          ])
 
     def matrix_F2(self):
