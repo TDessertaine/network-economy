@@ -70,7 +70,7 @@ class LinearDynamics:
     def forecast_block_Y2(self):
         return - (self.betap + self.beta) * np.sum(
             [np.kron(self.canonical_Mn(self.n, i, i), np.ones(self.n) - self.canonical_Rn(self.n, i)) / self.z[i]
-             for i in range(self.n)])
+             for i in range(self.n)], axis=0)
 
     def forecast_block_Z2(self):
         return (self.betap + self.beta) * (1. / (self.z * self.eco.p_eq)) * self.eco.house.phi * self.eco.house.f * \
@@ -86,8 +86,8 @@ class LinearDynamics:
                           np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
                          [np.zeros((self.n ** 2, self.n)), np.zeros((self.n ** 2, self.n)),
                           np.zeros((self.n ** 2, self.n)), np.eye(self.n ** 2), np.zeros((self.n ** 2, 1))],
-                         [np.zeros((1, self.n)), np.zeros((1, self.n)), np.zeros((1, self.n)),
-                          np.zeros((1, self.n ** 2)), 1]
+                         [np.zeros(self.n), np.zeros(self.n), np.zeros(self.n),
+                          np.zeros(self.n ** 2), 1]
                          ])
 
     def matrix_F2(self):
