@@ -21,9 +21,9 @@ class LinearDynamics:
         self.eco.set_quantities()
         self.n = self.eco.n
         self.alpha = self.eco.firms.alpha
-        self.alphap = self.eco.firms.alphap
+        self.alphap = self.eco.firms.alpha_p
         self.beta = self.eco.firms.beta
-        self.betap = self.eco.firms.betap
+        self.betap = self.eco.firms.beta_p
         self.omega = self.eco.firms.omega
         self.z = self.eco.firms.z
 
