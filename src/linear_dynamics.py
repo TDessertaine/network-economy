@@ -174,8 +174,8 @@ class LinearDynamics:
                           self.fixed_shortage_block_D(), self.fixed_shortage_block_E()],
                          [self.fixed_shortage_block_F(), self.fixed_shortage_block_G(), self.fixed_shortage_block_H(),
                           self.fixed_shortage_block_I(), self.fixed_shortage_block_J()],
-                         [self.fixed_shortage_block_K(), np.ones(self.n), np.ones(self.n),
-                          np.ones(self.n ** 2), self.fixed_shortage_block_L()]
+                         [self.fixed_shortage_block_K(), np.zeros(self.n), np.zeros(self.n),
+                          np.zeros(self.n ** 2), self.fixed_shortage_block_L()]
                          ])
 
     def fixed_shortage(self):
