@@ -58,7 +58,7 @@ class LinearDynamics:
         return (1 - self.betap) * np.eye(self.n)
 
     def forecast_block_X1(self):
-        return self.beta * np.dot(np.dot(np.diag(1. / self.z), self.g_over_p), self.M2)
+        return self.beta * np.dot(np.diag(self.eco.g_eq / (self.z * self.eco.p_eq)), self.M2)
 
     def forecast_block_Y1(self):
         return -self.betap * np.sum([np.kron(self.canonical_Mn(self.n, i, i), self.canonical_Rn(self.n, i)) / self.z[i]
@@ -102,10 +102,10 @@ class LinearDynamics:
                          [self.matrix_Q().T, np.zeros((self.n, self.n ** 2 + 3 * self.n + 1))]])
 
     def fixed_shortage_block_A(self):
-        outer = np.outer(self.eco.j0 *
+        outer = np.outer(np.ones(self.n), self.eco.j0 *
                          np.power(self.eco.g_eq,
                                   (1 - self.eco.b) / self.eco.b),
-                         np.ones(self.n))
+                         )
         fst = self.alpha * self.p_over_g + self.omega * np.dot(np.diag(self.eco.p_eq), outer) \
               / (self.eco.b * self.eco.labour_eq)
         snd = np.dot(np.diag(self.eco.p_eq / (self.z * self.eco.g_eq)),
