@@ -42,8 +42,8 @@ class LinearDynamics:
         self.g_over_p = np.diag(self.eco.g_eq / self.eco.p_eq)
 
     def matrix_Q(self):
-        return np.block([np.eye(self.n),
-                         np.zeros((self.n ** 2 + 3 * self.n + 1, self.n))]
+        return np.block([[np.eye(self.n)],
+                         [np.zeros((self.n ** 2 + 3 * self.n + 1, self.n))]]
                         )
 
     def matrix_P(self):
