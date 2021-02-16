@@ -14,6 +14,43 @@ class LinearDynamics:
         a = np.zeros((n, n))
         a[i, j] = 1
         return a
+    
+    @staticmethod
+    def p_pol_mul(alpha, alphap, beta, betap, omega, b, f, r):
+    return np.array([1,
+           -(2-alpha-betap-beta+alphap*beta/b),
+           (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
+           -alpha*(beta+betap)])
+
+    @staticmethod
+    def p_pol(alpha, alphap, beta, betap, omega, b, f, r):
+        return np.array([1,
+               -(2-alpha-betap-beta+alphap*beta/b),
+               (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
+               -alpha*(beta+betap),0])-(1-f)*(1+r)*np.array([0,1,
+               -(2-alpha-betap-beta+alphap*beta/b),
+               (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
+               -alpha*(beta+betap)])
+
+    @staticmethod
+    def q_pol(alpha, alphap, beta, betap, omega, b, f, r, phi):
+        alphap_f = alphap * (1-(1+r)*(1-f))
+        tau = phi * (1+r) * (1-f)  / (phi + 1- (1+r)*(1-f))
+        tau_over_one_minus_f = phi * (1+r)   / (phi + 1- (1+r)*(1-f))
+        rho = -omega * beta * (1+r-tau_over_one_minus_f)+beta*(1-(1+r)*(1-f))*(alpha*tau_over_one_minus_f-alphap*(1+r))
+        prefac = tau * (1 - (1+r)*(1-f))*(beta+betap)+(1-f)*rho
+        return f * (np.array([0,
+                         beta*(omega+alphap_f),
+               -(beta+betap)*(alphap_f+omega),
+               0,0])-(1+r)*(1-f)*np.array([0,0,
+                         beta*(omega+alphap_f),
+               -(beta+betap)*(alphap_f+omega),
+               0])+
+                np.array([0,0,
+                         prefac,
+               (1-alpha)*prefac,
+               0])
+               ) / (b * (1-(1+r)*(1-f)))
 
     def __init__(self, e):
         # Underlying economy
@@ -109,7 +146,7 @@ class LinearDynamics:
         fst = self.alpha * self.p_over_g - self.omega * np.dot(np.diag(self.eco.p_eq), outer) \
               / (self.eco.b * self.eco.labour_eq)
         snd = np.dot(np.diag(self.eco.p_eq / (self.z * self.eco.g_eq)),
-                     self.alphap * self.M1.T / self.eco.b - self.M2.T)
+                     self.alphap * self.M1.T / self.eco.b - self.alpha * self.M2.T)
         thd = - self.alphap * np.dot(np.diag(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)), outer) / \
               (self.eco.b * self.eco.b_eq)
 
@@ -131,16 +168,12 @@ class LinearDynamics:
         return fst + snd
 
     def fixed_shortage_block_E(self):
-        pref_fst = (self.alpha - self.alphap) * self.eco.house.phi * (1 + self.eco.house.r) * self.eco.house.f / \
-                   (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f)) / \
-                   self.eco.house.theta.sum()
-        fst = pref_fst * self.eco.house.theta / (self.z * self.eco.g_eq)
-        q = (1 + self.eco.house.r) * (1 - (1 + self.eco.house.r) *
-                                                                     (1 - self.eco.house.f)) / (
-                          self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
-        snd = self.omega * self.eco.p_eq * q
+        tau_over_one_minus_f = self.eco.house.phi * (1+self.eco.house.r)  / (self.eco.house.phi + 1- (1+self.eco.house.r)*(1-self.eco.house.f))
+        fst = (self.alpha-self.alphap) * tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq * self.eco.b_eq)
+        q = 1 + self.eco.house.r - tau_over_one_minus_f
+        snd = -self.omega * self.eco.p_eq * q / self.eco.labour_eq
         thd = - self.alphap * q * self.eco.p_eq * self.eco.cons_eq / \
-              (self.eco.house.f * self.z * self.eco.g_eq * self.eco.b_eq)
+              (self.z * self.eco.g_eq * self.eco.b_eq)
 
         return (fst + snd + thd).reshape((self.n, 1))
 

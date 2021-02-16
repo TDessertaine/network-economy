@@ -418,7 +418,7 @@ class Economy:
 
         self.labour_eq = np.power(self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
         self.cons_eq = self.kappa / self.p_eq
-        self.b_eq = np.sum(self.house.theta) / self.mu_eq
+        self.b_eq = np.sum(self.house.theta) / (self.mu_eq * self.house.f)
         self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(
             self.labour_eq / self.house.l_0,
             self.house.phi + 1) / (
