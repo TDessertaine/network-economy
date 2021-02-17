@@ -197,7 +197,7 @@ class LinearDynamics:
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
                        spr.kron(canonical_Rn(self.n, i),
                                 spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
-                                                        self.M2[:, i].toarray()
+                                                        self.M2.toarray()[:, i]
                                                         - self.eco.firms.z[i] * canonical_Rn(self.n, i)
                                                         - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
                                                                 1 - self.eco.b) / self.eco.b) / (
