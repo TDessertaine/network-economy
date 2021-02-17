@@ -131,7 +131,7 @@ class LinearDynamics:
 
     def forecast_block_Z2(self):
         return (self.betap + self.beta) * self.tau_over_one_minus_f * \
-               spr.bsr_matrix(self.eco.cons_eq.reshape((self.n, 1))) / self.eco.b_eq
+               (self.eco.cons_eq.reshape((self.n, 1))) / self.eco.b_eq
 
     def matrix_F1(self):
         return spr.bmat([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
