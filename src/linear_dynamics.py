@@ -1,19 +1,23 @@
 import numpy as np
 
 
+def canonical_Rn(n, i):
+    a = np.zeros(n)
+    a[i] = 1
+    return a
+
+
+def canonical_Mn(n, i, j):
+    a = np.zeros((n, n))
+    a[i, j] = 1
+    return a
+
+
+def constant_line_one(n, i):
+    return np.outer(canonical_Rn(n, i), np.ones(n))
+
+
 class LinearDynamics:
-
-    @staticmethod
-    def canonical_Rn(n, i):
-        a = np.zeros(n)
-        a[i] = 1
-        return a
-
-    @staticmethod
-    def canonical_Mn(n, i, j):
-        a = np.zeros((n, n))
-        a[i, j] = 1
-        return a
 
     @staticmethod
     def p_pol_mul(alpha, alphap, beta, betap, omega, b, f, r):
@@ -32,7 +36,7 @@ class LinearDynamics:
                                              1,
                                              -(2 - alpha - betap - beta + alphap * beta / b),
                                              (1 - alpha) * (1 - beta - betap) + alpha * beta + (
-                                                         beta + betap) * alphap / b,
+                                                     beta + betap) * alphap / b,
                                              -alpha * (beta + betap)])
 
     @staticmethod
@@ -186,38 +190,38 @@ class LinearDynamics:
 
     def fixed_shortage_block_F(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(self.canonical_Rn(self.n, i),
-                               np.kron(self.canonical_Rn(self.n, i),
-                                       (self.M2[:, i]
-                                        - self.eco.firms.z[i] * self.canonical_Rn(self.n, i)
+                       np.kron(canonical_Rn(self.n, i),
+                               np.outer(canonical_Rn(self.n, i),
+                                        self.M2[:, i]
+                                        - self.eco.firms.z[i] * canonical_Rn(self.n, i)
                                         - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
-                                                           1 - self.eco.b) / self.eco.b) / (
-                                                    self.eco.b * self.eco.b_eq)).reshape(self.n)
-                                       )
+                                                1 - self.eco.b) / self.eco.b) / (
+                                                self.eco.b * self.eco.b_eq)
+                                        )
                                )
                        for i in range(self.n)])
 
     def fixed_shortage_block_G(self):
-        return np.sum([np.exp(-self.eco.firms.sigma[i])*self.eco.firms.z[i] *
-                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)), self.canonical_Mn(self.n, i, i))
+        return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.firms.z[i] *
+                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
                        for i in range(self.n)])
 
     def fixed_shortage_block_H(self):
-        return np.sum([np.exp(-self.eco.firms.sigma[i])*self.eco.cons_eq[i] *
-                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)), self.canonical_Mn(self.n, i, i))
+        return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.cons_eq[i] *
+                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
                        / self.eco.p_eq[i]
                        for i in range(self.n)])
 
     def fixed_shortage_block_I(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(self.canonical_Mn(self.n, i, i), np.eye(self.n))
+                       np.kron(canonical_Mn(self.n, i, i), np.outer(canonical_Rn(self.n, i), np.ones(self.n)))
                        for i in range(self.n)])
 
     def fixed_shortage_block_J(self):
-        return -(1+self.eco.house.r) * \
+        return -(1 + self.eco.house.r) * \
                np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)),
-                               self.canonical_Rn(self.n, i).reshape((self.n, 1)))
+                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
+                               canonical_Rn(self.n, i).reshape((self.n, 1)))
                        for i in range(self.n)]) / self.eco.b_eq
 
     def fixed_shortage_block_K(self):
