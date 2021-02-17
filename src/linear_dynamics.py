@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as spr
 
 
 def canonical_Rn(n, i):
@@ -10,11 +11,11 @@ def canonical_Rn(n, i):
 def canonical_Mn(n, i, j):
     a = np.zeros((n, n))
     a[i, j] = 1
-    return a
+    return spr.bsr_matrix(a)
 
 
 def constant_line_one(n, i):
-    return np.outer(canonical_Rn(n, i), np.ones(n))
+    return spr.bsr_matrix(np.outer(canonical_Rn(n, i), np.ones(n)))
 
 
 class LinearDynamics:
@@ -71,6 +72,11 @@ class LinearDynamics:
         self.betap = self.eco.firms.beta_p
         self.omega = self.eco.firms.omega
         self.z = self.eco.firms.z
+        self.tau = self.eco.house.phi * (1 + self.eco.house.r) * \
+                   (1 - self.eco.house.f) / (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
+
+        self.tau_over_one_minus_f = self.eco.house.phi * (1 + self.eco.house.r) \
+                                    / (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
 
         # Auxiliary matrices
         tmp_diag1 = np.diag(np.power(self.z,
@@ -81,82 +87,82 @@ class LinearDynamics:
         tmp_mat = np.dot(np.diag(np.power(self.eco.g_eq,
                                           (1 - self.eco.b) / self.eco.b)),
                          self.eco.lamb)
-        self.M1 = np.dot(np.dot(tmp_diag3, tmp_diag1 - tmp_mat), np.diag(1. / np.diag(tmp_diag3)))
-        self.M2 = np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b),
-                         np.diag(1. / np.diag(tmp_diag3 * tmp_diag2)))
-        self.p_over_g = np.diag(self.eco.p_eq / self.eco.g_eq)
-        self.g_over_p = np.diag(self.eco.g_eq / self.eco.p_eq)
+        self.M1 = spr.bsr_matrix(np.dot(np.dot(tmp_diag3, tmp_diag1 - tmp_mat), np.diag(1. / np.diag(tmp_diag3))))
+        self.M2 = spr.bsr_matrix(np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b),
+                                        np.diag(1. / np.diag(tmp_diag3 * tmp_diag2))))
+
+        self.outer = spr.bsr_matrix(np.outer(np.ones(self.n), self.eco.j0 *
+                                             np.power(self.eco.g_eq,
+                                                      (1 - self.eco.b) / self.eco.b),
+                                             ))
+        self.p_over_g = spr.bsr_matrix(np.diag(self.eco.p_eq / self.eco.g_eq))
+        self.g_over_p = spr.bsr_matrix(np.diag(self.eco.g_eq / self.eco.p_eq))
 
     def matrix_Q(self):
-        return np.block([[np.eye(self.n)],
-                         [np.zeros((self.n ** 2 + 2 * self.n + 1, self.n))]]
+        return spr.bmat([[spr.eye(self.n)],
+                         [spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, self.n)))]]
                         )
 
     def matrix_P(self):
-        return np.block([[np.zeros((self.n, self.n)), np.zeros((self.n, self.n ** 2 + 2 * self.n + 1))],
-                         [np.zeros((self.n ** 2 + 2 * self.n + 1, self.n)), np.eye(self.n ** 2 + 2 * self.n + 1)]]
-                        )
+        return spr.bmat([[spr.bsr_matrix(np.zeros((self.n, self.n))), None],
+                         [None, np.eye(self.n ** 2 + 2 * self.n + 1)]])
 
     def forecast_block_V1(self):
-        return -(self.beta + self.betap) * np.dot(np.diag(1. / self.z), self.M2.T) + self.betap * np.eye(self.n)
+        return -(self.beta + self.betap) * spr.diags(1. / self.z).dot(self.M2.transpose()) + self.betap * spr.eye(
+            self.n)
 
     def forecast_block_W1(self):
-        return (1 - self.betap) * np.eye(self.n)
+        return (1 - self.betap) * spr.eye(self.n)
 
     def forecast_block_X1(self):
-        return self.beta * np.dot(np.diag(self.eco.g_eq / (self.z * self.eco.p_eq)), self.M2)
+        return self.beta * spr.diags(self.eco.g_eq / (self.z * self.eco.p_eq)).dot(self.M2)
 
     def forecast_block_Y1(self):
-        return - self.betap * np.sum([np.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
+        return - self.betap * np.sum([spr.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
                                       for i in range(self.n)], axis=0)
 
     def forecast_block_X2(self):
-        return - (self.beta + self.betap) * np.diag(self.eco.cons_eq / (self.z * self.eco.p_eq))
+        return - (self.beta + self.betap) * spr.diags(self.eco.cons_eq / (self.z * self.eco.p_eq))
 
     def forecast_block_Y2(self):
         return - (self.betap + self.beta) * np.sum(
-            [np.kron(np.ones(self.n), np.eye(self.n) - canonical_Mn(self.n, i, i)) / self.z[i]
+            [np.kron(np.ones(self.n), spr.eye(self.n) - canonical_Mn(self.n, i, i)) / self.z[i]
              for i in range(self.n)], axis=0)
 
     def forecast_block_Z2(self):
-        return (self.betap + self.beta) * (1. / (self.z * self.eco.p_eq)) * self.eco.house.phi * self.eco.house.f * \
-               (1 + self.eco.house.r) / (
-                       self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
+        return (self.betap + self.beta) * self.tau_over_one_minus_f * spr.bsr_matrix(self.eco.cons_eq) / self.eco.b_eq
 
     def matrix_F1(self):
-        return np.block([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
-                          self.forecast_block_Y1(), np.zeros((self.n, 1))],
-                         [np.zeros((self.n, self.n)), np.eye(self.n), np.zeros((self.n, self.n)),
-                          np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
-                         [np.zeros((self.n, self.n)), np.zeros((self.n, self.n)), np.eye(self.n),
-                          np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
-                         [np.zeros((self.n ** 2, self.n)), np.zeros((self.n ** 2, self.n)),
-                          np.zeros((self.n ** 2, self.n)), np.eye(self.n ** 2), np.zeros((self.n ** 2, 1))],
-                         [np.zeros(self.n), np.zeros(self.n), np.zeros(self.n),
-                          np.zeros(self.n ** 2), 1]
+        return spr.bmat([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
+                          self.forecast_block_Y1(), None],
+                         [None, np.eye(self.n), None,
+                          None, None],
+                         [None, None, np.eye(self.n),
+                          None, None],
+                         [None, None,
+                          None, np.eye(self.n ** 2), None],
+                         [None, None, None,
+                          None, 1]
                          ])
 
     def matrix_F2(self):
-        return np.block([[np.zeros((self.n, 2 * self.n)), np.block([self.forecast_block_X2(), self.forecast_block_Y2(),
-                                                                    self.forecast_block_Z2().reshape((self.n, 1))])],
-                         [np.zeros((self.n ** 2 + 2 * self.n + 1, 2 * self.n)),
-                          np.zeros((self.n ** 2 + 2 * self.n + 1, self.n ** 2 + self.n + 1))]]
+        return spr.bmat([[spr.bsr_matrix(np.zeros((self.n, 2 * self.n))),
+                          spr.bsr_matrix(np.block([self.forecast_block_X2(), self.forecast_block_Y2(),
+                                                   self.forecast_block_Z2().reshape((self.n, 1))]))],
+                         [spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, 2 * self.n))),
+                          spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, self.n ** 2 + self.n + 1)))]]
                         )
 
     def forecast_matrix(self):
-        return np.block([[self.matrix_F1(), self.matrix_F2()],
-                         [self.matrix_Q().T, np.zeros((self.n, self.n ** 2 + 3 * self.n + 1))]])
+        return spr.bmat([[self.matrix_F1(), self.matrix_F2()],
+                         [self.matrix_Q().T, None]])
 
     def fixed_shortage_block_A(self):
-        outer = np.outer(np.ones(self.n), self.eco.j0 *
-                         np.power(self.eco.g_eq,
-                                  (1 - self.eco.b) / self.eco.b),
-                         )
-        fst = self.alpha * self.p_over_g - self.omega * np.dot(np.diag(self.eco.p_eq), outer) \
+        fst = self.alpha * self.p_over_g - self.omega * spr.diags(self.eco.p_eq).dot(self.outer) \
               / (self.eco.b * self.eco.labour_eq)
-        snd = np.dot(np.diag(self.eco.p_eq / (self.z * self.eco.g_eq)),
-                     self.alphap * self.M1.T / self.eco.b - self.alpha * self.M2.T)
-        thd = - self.alphap * np.dot(np.diag(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)), outer) / \
+        snd = spr.diags(self.eco.p_eq / (self.z * self.eco.g_eq)).dot(
+            self.alphap * self.M1.transpose() / self.eco.b - self.alpha * self.M2.transpose())
+        thd = - self.alphap * spr.diags(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)).dot(self.outer) / \
               (self.eco.b * self.eco.b_eq)
 
         return fst + snd + thd
@@ -165,88 +171,87 @@ class LinearDynamics:
         return - self.alpha * self.p_over_g
 
     def fixed_shortage_block_C(self):
-        return np.eye(self.n) - (self.alpha - self.alphap) * np.diag(self.eco.cons_eq / (self.z * self.eco.g_eq)) \
-               - self.alphap * np.dot(np.diag(1. / self.z), self.M1)
+        return spr.eye(self.n) - (self.alpha - self.alphap) * spr.diags(self.eco.cons_eq / (self.z * self.eco.g_eq)) \
+               - self.alphap * spr.diags(1. / self.z).dot(self.M1)
 
     def fixed_shortage_block_D(self):
-        fst = (self.alphap - self.alpha) * np.sum([self.eco.p_eq[i] * np.kron(canonical_Mn(self.n, i, i),
-                                                                              np.ones(self.n)) /
+        fst = (self.alphap - self.alpha) * np.sum([self.eco.p_eq[i] * spr.kron(canonical_Mn(self.n, i, i),
+                                                                               np.ones(self.n)) /
                                                    (self.z[i] * self.eco.g_eq[i])
                                                    for i in range(self.n)], axis=0)
-        snd = - self.alphap * np.dot(np.diag(1. / (self.z * self.eco.g_eq)), np.kron(self.eco.p_eq, np.eye(self.n)))
+        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(np.kron(self.eco.p_eq, spr.eye(self.n)))
         return fst + snd
 
     def fixed_shortage_block_E(self):
-        tau_over_one_minus_f = self.eco.house.phi * (1 + self.eco.house.r) / (
-                self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
-        fst = (self.alpha - self.alphap) * tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
-                self.z * self.eco.g_eq * self.eco.b_eq)
-        q = 1 + self.eco.house.r - tau_over_one_minus_f
+        fst = (self.alpha - self.alphap) * self.tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
+                self.z * self.eco.g_eq) / self.eco.b_eq
+        q = 1 + self.eco.house.r - self.tau_over_one_minus_f
         snd = -self.omega * self.eco.p_eq * q / self.eco.labour_eq
         thd = - self.alphap * q * self.eco.p_eq * self.eco.cons_eq / \
               (self.z * self.eco.g_eq * self.eco.b_eq)
 
-        return (fst + snd + thd).reshape((self.n, 1))
+        return spr.bsr_matrix((fst + snd + thd).reshape((self.n, 1)))
 
     def fixed_shortage_block_F(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(canonical_Rn(self.n, i),
-                               np.outer(canonical_Rn(self.n, i),
-                                        self.M2[:, i]
-                                        - self.eco.firms.z[i] * canonical_Rn(self.n, i)
-                                        - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
-                                                1 - self.eco.b) / self.eco.b) / (
-                                                self.eco.b * self.eco.b_eq)
-                                        )
+                       spr.kron(canonical_Rn(self.n, i),
+                               spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
+                                                       self.M2[:, i]
+                                                       - self.eco.firms.z[i] * canonical_Rn(self.n, i)
+                                                       - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
+                                                               1 - self.eco.b) / self.eco.b) / (
+                                                               self.eco.b * self.eco.b_eq)
+                                                       )
+                                              )
                                )
                        for i in range(self.n)])
 
     def fixed_shortage_block_G(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.firms.z[i] *
-                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
+                       spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
                        for i in range(self.n)])
 
     def fixed_shortage_block_H(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.cons_eq[i] *
-                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
+                       spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
                        / self.eco.p_eq[i]
                        for i in range(self.n)])
 
     def fixed_shortage_block_I(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(canonical_Mn(self.n, i, i), np.outer(canonical_Rn(self.n, i), np.ones(self.n)))
+                       spr.kron(canonical_Mn(self.n, i, i), np.outer(canonical_Rn(self.n, i), np.ones(self.n)))
                        for i in range(self.n)])
 
     def fixed_shortage_block_J(self):
         return -(1 + self.eco.house.r) * \
                np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       np.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
-                               canonical_Rn(self.n, i).reshape((self.n, 1)))
+                       spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
+                                canonical_Rn(self.n, i).reshape((self.n, 1)))
                        for i in range(self.n)]) / self.eco.b_eq
 
     def fixed_shortage_block_K(self):
-        return (1 - self.eco.house.f) * self.eco.j0 * np.power(self.eco.g_eq,
-                                                               (1 - self.eco.b) / self.eco.b) / self.eco.b
+        return (1 - self.eco.house.f) * spr.bsr_matrix(self.eco.j0 * np.power(self.eco.g_eq,
+                                                               (1 - self.eco.b) / self.eco.b)) / self.eco.b
 
     def fixed_shortage_block_L(self):
         return (1 - self.eco.house.f) * (1 + self.eco.house.r)
 
     def matrix_Sf(self):
-        return np.block([[np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)),
-                          np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
-                         [np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)),
-                          np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
+        return spr.bmat([[np.eye(self.n), None, None,
+                          None, None],
+                         [np.eye(self.n), None, None,
+                          None, None],
                          [self.fixed_shortage_block_A(), self.fixed_shortage_block_B(), self.fixed_shortage_block_C(),
                           self.fixed_shortage_block_D(), self.fixed_shortage_block_E()],
                          [self.fixed_shortage_block_F(), self.fixed_shortage_block_G(), self.fixed_shortage_block_H(),
                           self.fixed_shortage_block_I(), self.fixed_shortage_block_J()],
-                         [self.fixed_shortage_block_K(), np.zeros(self.n), np.zeros(self.n),
-                          np.zeros(self.n ** 2), self.fixed_shortage_block_L()]
+                         [self.fixed_shortage_block_K(), None, None,
+                          None, self.fixed_shortage_block_L()]
                          ])
 
     def fixed_shortage(self):
-        return np.block([[self.matrix_Sf(), np.zeros((self.n ** 2 + 3 * self.n + 1, self.n))],
+        return spr.bmat([[self.matrix_Sf(), None],
                          [self.matrix_P(), self.matrix_Q()]])
 
     def fixed_dynamical(self):
-        return np.dot(self.forecast_matrix(), self.fixed_shortage())
+        return self.forecast_matrix().dot(self.fixed_shortage())
