@@ -107,7 +107,7 @@ class LinearDynamics:
         return self.beta * np.dot(np.diag(self.eco.g_eq / (self.z * self.eco.p_eq)), self.M2)
 
     def forecast_block_Y1(self):
-        return - self.betap * np.sum([np.kron(self.canonical_Rn(self.n, i), self.canonical_Mn(self.n, i, i)) / self.z[i]
+        return - self.betap * np.sum([np.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
                                       for i in range(self.n)], axis=0)
 
     def forecast_block_X2(self):
@@ -115,7 +115,7 @@ class LinearDynamics:
 
     def forecast_block_Y2(self):
         return - (self.betap + self.beta) * np.sum(
-            [np.kron(np.ones(self.n), np.eye(self.n) - self.canonical_Mn(self.n, i, i)) / self.z[i]
+            [np.kron(np.ones(self.n), np.eye(self.n) - canonical_Mn(self.n, i, i)) / self.z[i]
              for i in range(self.n)], axis=0)
 
     def forecast_block_Z2(self):
@@ -169,7 +169,7 @@ class LinearDynamics:
                - self.alphap * np.dot(np.diag(1. / self.z), self.M1)
 
     def fixed_shortage_block_D(self):
-        fst = (self.alphap - self.alpha) * np.sum([self.eco.p_eq[i] * np.kron(self.canonical_Mn(self.n, i, i),
+        fst = (self.alphap - self.alpha) * np.sum([self.eco.p_eq[i] * np.kron(canonical_Mn(self.n, i, i),
                                                                               np.ones(self.n)) /
                                                    (self.z[i] * self.eco.g_eq[i])
                                                    for i in range(self.n)], axis=0)
