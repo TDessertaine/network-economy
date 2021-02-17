@@ -205,30 +205,30 @@ class LinearDynamics:
                                                        )
                                               )
                                )
-                       for i in range(self.n)])
+                       for i in range(self.n)], axis=0)
 
     def fixed_shortage_block_G(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.firms.z[i] *
                        spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
-                       for i in range(self.n)])
+                       for i in range(self.n)], axis=0)
 
     def fixed_shortage_block_H(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.cons_eq[i] *
                        spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)), canonical_Mn(self.n, i, i))
                        / self.eco.p_eq[i]
-                       for i in range(self.n)])
+                       for i in range(self.n)], axis=0)
 
     def fixed_shortage_block_I(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
                        spr.kron(canonical_Mn(self.n, i, i), np.outer(canonical_Rn(self.n, i), np.ones(self.n)))
-                       for i in range(self.n)])
+                       for i in range(self.n)], axis=0)
 
     def fixed_shortage_block_J(self):
         return -(1 + self.eco.house.r) * \
                np.sum([np.exp(-self.eco.firms.sigma[i]) *
                        spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
                                 canonical_Rn(self.n, i).reshape((self.n, 1)))
-                       for i in range(self.n)]) / self.eco.b_eq
+                       for i in range(self.n)], axis=0) / self.eco.b_eq
 
     def fixed_shortage_block_K(self):
         return (1 - self.eco.house.f) * spr.bsr_matrix(self.eco.j0 * np.power(self.eco.g_eq,
