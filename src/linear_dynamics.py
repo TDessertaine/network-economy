@@ -180,7 +180,7 @@ class LinearDynamics:
                                                                                np.ones(self.n)) /
                                                    (self.z[i] * self.eco.g_eq[i])
                                                    for i in range(self.n)], axis=0)
-        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(np.kron(self.eco.p_eq, spr.eye(self.n)))
+        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(spr.kron(self.eco.p_eq, spr.eye(self.n)))
         return fst + snd
 
     def fixed_shortage_block_E(self):
