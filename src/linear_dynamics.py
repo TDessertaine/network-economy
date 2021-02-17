@@ -149,7 +149,7 @@ class LinearDynamics:
     def matrix_F2(self):
         return spr.bmat([[spr.bsr_matrix(np.zeros((self.n, 2 * self.n))),
                           spr.hstack([self.forecast_block_X2(), self.forecast_block_Y2(),
-                                                   self.forecast_block_Z2()])],
+                                      self.forecast_block_Z2()])],
                          [spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, 2 * self.n))),
                           spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, self.n ** 2 + self.n + 1)))]]
                         )
@@ -196,15 +196,15 @@ class LinearDynamics:
     def fixed_shortage_block_F(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
                        spr.kron(canonical_Rn(self.n, i),
-                               spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
-                                                       self.M2[:, i]
-                                                       - self.eco.firms.z[i] * canonical_Rn(self.n, i)
-                                                       - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
-                                                               1 - self.eco.b) / self.eco.b) / (
-                                                               self.eco.b * self.eco.b_eq)
-                                                       )
-                                              )
-                               )
+                                spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
+                                                        self.M2[:, i].toarray()
+                                                        - self.eco.firms.z[i] * canonical_Rn(self.n, i)
+                                                        - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
+                                                                1 - self.eco.b) / self.eco.b) / (
+                                                                self.eco.b * self.eco.b_eq)
+                                                        )
+                                               )
+                                )
                        for i in range(self.n)], axis=0)
 
     def fixed_shortage_block_G(self):
@@ -232,7 +232,8 @@ class LinearDynamics:
 
     def fixed_shortage_block_K(self):
         return (1 - self.eco.house.f) * spr.bsr_matrix(self.eco.j0 * np.power(self.eco.g_eq,
-                                                               (1 - self.eco.b) / self.eco.b)) / self.eco.b
+                                                                              (
+                                                                                          1 - self.eco.b) / self.eco.b)) / self.eco.b
 
     def fixed_shortage_block_L(self):
         return (1 - self.eco.house.f) * (1 + self.eco.house.r)
