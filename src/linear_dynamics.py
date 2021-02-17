@@ -14,43 +14,47 @@ class LinearDynamics:
         a = np.zeros((n, n))
         a[i, j] = 1
         return a
-    
+
     @staticmethod
     def p_pol_mul(alpha, alphap, beta, betap, omega, b, f, r):
-    return np.array([1,
-           -(2-alpha-betap-beta+alphap*beta/b),
-           (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
-           -alpha*(beta+betap)])
+        return np.array([1,
+                         -(2 - alpha - betap - beta + alphap * beta / b),
+                         (1 - alpha) * (1 - beta - betap) + alpha * beta + (beta + betap) * alphap / b,
+                         -alpha * (beta + betap)])
 
     @staticmethod
     def p_pol(alpha, alphap, beta, betap, omega, b, f, r):
         return np.array([1,
-               -(2-alpha-betap-beta+alphap*beta/b),
-               (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
-               -alpha*(beta+betap),0])-(1-f)*(1+r)*np.array([0,1,
-               -(2-alpha-betap-beta+alphap*beta/b),
-               (1-alpha)*(1-beta-betap)+alpha*beta+(beta+betap)*alphap/b,
-               -alpha*(beta+betap)])
+                         -(2 - alpha - betap - beta + alphap * beta / b),
+                         (1 - alpha) * (1 - beta - betap) + alpha * beta + (beta + betap) * alphap / b,
+                         -alpha * (beta + betap), 0]) - \
+               (1 - f) * (1 + r) * np.array([0,
+                                             1,
+                                             -(2 - alpha - betap - beta + alphap * beta / b),
+                                             (1 - alpha) * (1 - beta - betap) + alpha * beta + (
+                                                         beta + betap) * alphap / b,
+                                             -alpha * (beta + betap)])
 
     @staticmethod
     def q_pol(alpha, alphap, beta, betap, omega, b, f, r, phi):
-        alphap_f = alphap * (1-(1+r)*(1-f))
-        tau = phi * (1+r) * (1-f)  / (phi + 1- (1+r)*(1-f))
-        tau_over_one_minus_f = phi * (1+r)   / (phi + 1- (1+r)*(1-f))
-        rho = -omega * beta * (1+r-tau_over_one_minus_f)+beta*(1-(1+r)*(1-f))*(alpha*tau_over_one_minus_f-alphap*(1+r))
-        prefac = tau * (1 - (1+r)*(1-f))*(beta+betap)+(1-f)*rho
+        alphap_f = alphap * (1 - (1 + r) * (1 - f))
+        tau = phi * (1 + r) * (1 - f) / (phi + 1 - (1 + r) * (1 - f))
+        tau_over_one_minus_f = phi * (1 + r) / (phi + 1 - (1 + r) * (1 - f))
+        rho = -omega * beta * (1 + r - tau_over_one_minus_f) + beta * (1 - (1 + r) * (1 - f)) * (
+                alpha * tau_over_one_minus_f - alphap * (1 + r))
+        prefac = tau * (1 - (1 + r) * (1 - f)) * (beta + betap) + (1 - f) * rho
         return f * (np.array([0,
-                         beta*(omega+alphap_f),
-               -(beta+betap)*(alphap_f+omega),
-               0,0])-(1+r)*(1-f)*np.array([0,0,
-                         beta*(omega+alphap_f),
-               -(beta+betap)*(alphap_f+omega),
-               0])+
-                np.array([0,0,
-                         prefac,
-               (1-alpha)*prefac,
-               0])
-               ) / (b * (1-(1+r)*(1-f)))
+                              beta * (omega + alphap_f),
+                              -(beta + betap) * (alphap_f + omega),
+                              0, 0]) - (1 + r) * (1 - f) * np.array([0, 0,
+                                                                     beta * (omega + alphap_f),
+                                                                     -(beta + betap) * (alphap_f + omega),
+                                                                     0]) +
+                    np.array([0, 0,
+                              prefac,
+                              (1 - alpha) * prefac,
+                              0])
+                    ) / (b * (1 - (1 + r) * (1 - f)))
 
     def __init__(self, e):
         # Underlying economy
@@ -74,14 +78,15 @@ class LinearDynamics:
                                           (1 - self.eco.b) / self.eco.b)),
                          self.eco.lamb)
         self.M1 = np.dot(np.dot(tmp_diag3, tmp_diag1 - tmp_mat), np.diag(1. / np.diag(tmp_diag3)))
-        self.M2 = np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b), np.diag(1./np.diag(tmp_diag3 * tmp_diag2)))
+        self.M2 = np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b),
+                         np.diag(1. / np.diag(tmp_diag3 * tmp_diag2)))
         self.p_over_g = np.diag(self.eco.p_eq / self.eco.g_eq)
         self.g_over_p = np.diag(self.eco.g_eq / self.eco.p_eq)
 
     def matrix_Q(self):
         return np.block([[np.eye(self.n)],
                          [np.zeros((self.n ** 2 + 2 * self.n + 1, self.n))]]
-                       )
+                        )
 
     def matrix_P(self):
         return np.block([[np.zeros((self.n, self.n)), np.zeros((self.n, self.n ** 2 + 2 * self.n + 1))],
@@ -98,15 +103,15 @@ class LinearDynamics:
         return self.beta * np.dot(np.diag(self.eco.g_eq / (self.z * self.eco.p_eq)), self.M2)
 
     def forecast_block_Y1(self):
-        return -self.betap * np.sum([np.kron(self.canonical_Mn(self.n, i, i), self.canonical_Rn(self.n, i)) / self.z[i]
-                                     for i in range(self.n)], axis=0)
+        return - self.betap * np.sum([np.kron(self.canonical_Rn(self.n, i), self.canonical_Mn(self.n, i, i)) / self.z[i]
+                                      for i in range(self.n)], axis=0)
 
     def forecast_block_X2(self):
         return - (self.beta + self.betap) * np.diag(self.eco.cons_eq / (self.z * self.eco.p_eq))
 
     def forecast_block_Y2(self):
         return - (self.betap + self.beta) * np.sum(
-            [np.kron(self.canonical_Mn(self.n, i, i), np.ones(self.n) - self.canonical_Rn(self.n, i)) / self.z[i]
+            [np.kron(np.ones(self.n), np.eye(self.n) - self.canonical_Mn(self.n, i, i)) / self.z[i]
              for i in range(self.n)], axis=0)
 
     def forecast_block_Z2(self):
@@ -168,8 +173,10 @@ class LinearDynamics:
         return fst + snd
 
     def fixed_shortage_block_E(self):
-        tau_over_one_minus_f = self.eco.house.phi * (1+self.eco.house.r)  / (self.eco.house.phi + 1- (1+self.eco.house.r)*(1-self.eco.house.f))
-        fst = (self.alpha-self.alphap) * tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq * self.eco.b_eq)
+        tau_over_one_minus_f = self.eco.house.phi * (1 + self.eco.house.r) / (
+                self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
+        fst = (self.alpha - self.alphap) * tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
+                self.z * self.eco.g_eq * self.eco.b_eq)
         q = 1 + self.eco.house.r - tau_over_one_minus_f
         snd = -self.omega * self.eco.p_eq * q / self.eco.labour_eq
         thd = - self.alphap * q * self.eco.p_eq * self.eco.cons_eq / \
@@ -178,30 +185,52 @@ class LinearDynamics:
         return (fst + snd + thd).reshape((self.n, 1))
 
     def fixed_shortage_block_F(self):
-        return np.zeros((self.n ** 2, self.n))
+        return np.sum([np.exp(-self.eco.firms.sigma[i]) *
+                       np.kron(self.canonical_Rn(self.n, i),
+                               np.kron(self.canonical_Rn(self.n, i),
+                                       (self.M2[:, i]
+                                        - self.eco.firms.z[i] * self.canonical_Rn(self.n, i)
+                                        - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
+                                                           1 - self.eco.b) / self.eco.b) / (
+                                                    self.eco.b * self.eco.b_eq)).reshape(self.n)
+                                       )
+                               )
+                       for i in range(self.n)])
 
     def fixed_shortage_block_G(self):
-        return np.zeros((self.n ** 2, self.n))
+        return np.sum([np.exp(-self.eco.firms.sigma[i])*self.eco.firms.z[i] *
+                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)), self.canonical_Mn(self.n, i, i))
+                       for i in range(self.n)])
 
     def fixed_shortage_block_H(self):
-        return np.zeros((self.n ** 2, self.n))
+        return np.sum([np.exp(-self.eco.firms.sigma[i])*self.eco.cons_eq[i] *
+                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)), self.canonical_Mn(self.n, i, i))
+                       / self.eco.p_eq[i]
+                       for i in range(self.n)])
 
     def fixed_shortage_block_I(self):
-        return np.zeros((self.n ** 2, self.n ** 2))
+        return np.sum([np.exp(-self.eco.firms.sigma[i]) *
+                       np.kron(self.canonical_Mn(self.n, i, i), np.eye(self.n))
+                       for i in range(self.n)])
 
     def fixed_shortage_block_J(self):
-        return np.zeros((self.n ** 2, 1))
+        return -(1+self.eco.house.r) * \
+               np.sum([np.exp(-self.eco.firms.sigma[i]) *
+                       np.kron(self.canonical_Rn(self.n, i).reshape((self.n, 1)),
+                               self.canonical_Rn(self.n, i).reshape((self.n, 1)))
+                       for i in range(self.n)]) / self.eco.b_eq
 
     def fixed_shortage_block_K(self):
-        return (1 - self.eco.house.f) * self.eco.j0 * np.power(self.eco.g_eq, (1 - self.eco.b) / self.eco.b) / self.eco.b
+        return (1 - self.eco.house.f) * self.eco.j0 * np.power(self.eco.g_eq,
+                                                               (1 - self.eco.b) / self.eco.b) / self.eco.b
 
     def fixed_shortage_block_L(self):
         return (1 - self.eco.house.f) * (1 + self.eco.house.r)
 
     def matrix_Sf(self):
-        return np.block([[np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)), 
+        return np.block([[np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)),
                           np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
-                         [np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)), 
+                         [np.eye(self.n), np.zeros((self.n, self.n)), np.zeros((self.n, self.n)),
                           np.zeros((self.n, self.n ** 2)), np.zeros((self.n, 1))],
                          [self.fixed_shortage_block_A(), self.fixed_shortage_block_B(), self.fixed_shortage_block_C(),
                           self.fixed_shortage_block_D(), self.fixed_shortage_block_E()],
