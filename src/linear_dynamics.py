@@ -126,12 +126,12 @@ class LinearDynamics:
 
     def forecast_block_Y2(self):
         return - (self.betap + self.beta) * np.sum(
-            [np.kron(np.ones(self.n), spr.eye(self.n) - canonical_Mn(self.n, i, i)) / self.z[i]
+            [spr.kron(np.ones(self.n), spr.eye(self.n) - canonical_Mn(self.n, i, i)) / self.z[i]
              for i in range(self.n)], axis=0)
 
     def forecast_block_Z2(self):
         return (self.betap + self.beta) * self.tau_over_one_minus_f * \
-               (self.eco.cons_eq.reshape((self.n, 1))) / self.eco.b_eq
+               self.eco.cons_eq.reshape((self.n, 1)) / self.eco.b_eq
 
     def matrix_F1(self):
         return spr.bmat([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
