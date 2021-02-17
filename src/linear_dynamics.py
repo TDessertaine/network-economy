@@ -195,7 +195,7 @@ class LinearDynamics:
 
     def fixed_shortage_block_F(self):
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
-                       spr.kron(canonical_Rn(self.n, i),
+                       spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
                                 spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
                                                         self.M2.toarray()[:, i]
                                                         - self.eco.firms.z[i] * canonical_Rn(self.n, i)
