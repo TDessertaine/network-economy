@@ -148,7 +148,7 @@ class LinearDynamics:
 
     def matrix_F2(self):
         return spr.bmat([[spr.bsr_matrix(np.zeros((self.n, 2 * self.n))),
-                          spr.bsr_matrix(spr.bmat([self.forecast_block_X2(), self.forecast_block_Y2(),
+                          spr.bsr_matrix(np.block([self.forecast_block_X2(), self.forecast_block_Y2(),
                                                    self.forecast_block_Z2()]))],
                          [spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, 2 * self.n))),
                           spr.bsr_matrix(np.zeros((self.n ** 2 + 2 * self.n + 1, self.n ** 2 + self.n + 1)))]]
