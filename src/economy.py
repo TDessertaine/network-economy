@@ -231,6 +231,7 @@ class Economy:
         self.mu_eq = np.power(self.house.theta.sum()*(1 - (1+self.house.r)*(1-self.house.f))*np.power(self.house.gamma/self.house.f, k-1) / self.house.f, 1./k)
         self.kappa = self.house.theta * self.house.l_0 / self.mu_eq
         self.zeros_j_a = self.j_a != 0
+        print(self.mu_eq)
 
     def get_eps_cal(self):
         """
