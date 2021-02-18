@@ -176,11 +176,14 @@ class LinearDynamics:
                - self.alphap * spr.diags(1. / self.z).dot(self.M1)
 
     def fixed_shortage_block_D(self):
-        fst = (self.alphap - self.alpha) * np.sum([self.eco.p_eq[i] * spr.kron(canonical_Mn(self.n, i, i),
-                                                                               np.ones(self.n)) /
-                                                   (self.z[i] * self.eco.g_eq[i])
-                                                   for i in range(self.n)], axis=0)
-        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(spr.kron(self.eco.p_eq, spr.eye(self.n)))
+        fst = (self.alphap - self.alpha) * spr.diags(self.eco.p_eq /
+                                                     (self.z * self.eco.g_eq)).dot(spr.kron(np.ones(self.n),
+                                                                                            spr.eye(self.n)))
+        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(
+            np.sum([spr.kron(canonical_Rn(self.n, i),
+                             np.outer(canonical_Rn(self.n, i).reshape((self.n,1)), self.eco.p_eq)
+                    for i in range(self.n)], axis=0)
+        )
         return fst + snd
 
     def fixed_shortage_block_E(self):
