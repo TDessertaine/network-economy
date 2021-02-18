@@ -228,9 +228,7 @@ class Economy:
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[:, 0])
         k = 1 + 1 / self.house.phi
-        self.mu_eq = np.power(self.house.theta.sum() * (1 - (1 + self.house.r) *
-                                                        (1 - self.house.f)) *
-                              np.power(self.house.gamma / self.house.f, k - 1) / self.house.f, 1. / k)
+        self.mu_eq = np.power(self.house.theta.sum()*(1 - (1+self.house.r)*(1-self.house.f))*np.power(self.house.gamma/self.house.f, k-1) / self.house.f, 1./k)
         self.kappa = self.house.theta * self.house.l_0 / self.mu_eq
         self.zeros_j_a = self.j_a != 0
 
