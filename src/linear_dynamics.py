@@ -200,7 +200,7 @@ class LinearDynamics:
         return np.sum([np.exp(-self.eco.firms.sigma[i]) *
                        spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
                                 spr.bsr_matrix(np.outer(canonical_Rn(self.n, i),
-                                                        self.M2.toarray()[:, i]
+                                                        self.M2.toarray()[:, i].T
                                                         - self.eco.firms.z[i] * canonical_Rn(self.n, i)
                                                         - self.eco.cons_eq[i] * self.eco.j0 * np.power(self.eco.g_eq, (
                                                                 1 - self.eco.b) / self.eco.b) / (
@@ -235,8 +235,8 @@ class LinearDynamics:
 
     def fixed_shortage_block_K(self):
         return (1 - self.eco.house.f) * spr.bsr_matrix(self.eco.j0 * np.power(self.eco.g_eq,
-                                                                              (
-                                                                                          1 - self.eco.b) / self.eco.b)) / self.eco.b
+                                                                              (1 - self.eco.b) / self.eco.b)) \
+               / self.eco.b
 
     def fixed_shortage_block_L(self):
         return (1 - self.eco.house.f) * (1 + self.eco.house.r)
