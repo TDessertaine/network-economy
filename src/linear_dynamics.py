@@ -77,7 +77,7 @@ class LinearDynamics:
 
         self.tau_over_one_minus_f = self.eco.house.phi * (1 + self.eco.house.r) \
                                     / (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
-
+        self.q = 1 + self.eco.house.r - self.tau_over_one_minus_f
         # Auxiliary matrices
         tmp_diag1 = np.diag(np.power(self.z,
                                      self.eco.zeta))
@@ -187,11 +187,11 @@ class LinearDynamics:
         return fst + snd
 
     def fixed_shortage_block_E(self):
-        fst = (self.alpha - self.alphap) * self.tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
+        fst = self.alpha * self.tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
                 self.z * self.eco.g_eq) / self.eco.b_eq
-        q = 1 + self.eco.house.r - self.tau_over_one_minus_f
-        snd = -self.omega * self.eco.p_eq * q / self.eco.labour_eq
-        thd = - self.alphap * q * self.eco.p_eq * self.eco.cons_eq / \
+
+        snd = - self.omega * self.eco.p_eq * self.q / self.eco.labour_eq
+        thd = - self.alphap * (1 + self.eco.house.r) * self.eco.p_eq * self.eco.cons_eq / \
               (self.z * self.eco.g_eq * self.eco.b_eq)
 
         return spr.bsr_matrix((fst + snd + thd).reshape((self.n, 1)))
