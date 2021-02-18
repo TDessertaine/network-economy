@@ -227,11 +227,11 @@ class Economy:
                                       np.power(self.j_a, self.zeta))
             self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
             self.v = np.array(self.lamb_a[:, 0])
-        self.mu_eq = np.power(np.power(self.house.gamma, 1./self.house.phi) * np.sum(self.house.theta) *
-                              (1 - (1 - self.house.f) * (1 + self.house.r)) /
-                              (self.house.f * np.power(self.house.l_0, 1 + 1./self.house.phi)),
-                              self.house.phi / (1 + self.house.phi))
-        self.kappa = self.house.theta / self.mu_eq
+        k = 1 + 1 / self.house.phi
+        self.mu_eq = np.power(self.house.theta.sum() * (1 - (1 + self.house.r) *
+                                                        (1 - self.house.f)) *
+                              np.power(self.house.gamma / self.house.f, k - 1) / self.house.f, 1. / k)
+        self.kappa = self.house.theta * self.house.l_0 / self.mu_eq
         self.zeros_j_a = self.j_a != 0
 
     def get_eps_cal(self):
@@ -416,7 +416,7 @@ class Economy:
                               rcond=None)[0]
                     self.g_eq = np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(u, self.q))
 
-        self.labour_eq = np.power(self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
+        self.labour_eq = self.house.l_0 * np.power(self.mu_eq * self.house.f / self.house.gamma, 1. / self.house.phi)
         self.cons_eq = self.kappa / self.p_eq
         self.b_eq = np.sum(self.house.theta) / (self.mu_eq * self.house.f)
         self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(

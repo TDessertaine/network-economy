@@ -91,10 +91,11 @@ class LinearDynamics:
         self.M2 = spr.bsr_matrix(np.dot(np.dot(tmp_diag2 * tmp_diag3, tmp_diag1 - tmp_mat / self.eco.b),
                                         np.diag(1. / np.diag(tmp_diag3 * tmp_diag2))))
 
-        self.outer = spr.bsr_matrix(np.outer(np.ones(self.n), self.eco.j0 *
+        self.U = spr.bsr_matrix(np.outer(np.ones(self.n), self.eco.j0 *
                                              np.power(self.eco.g_eq,
                                                       (1 - self.eco.b) / self.eco.b),
-                                             ))
+                                             )
+                                )/self.eco.labour_eq
         self.p_over_g = spr.bsr_matrix(np.diag(self.eco.p_eq / self.eco.g_eq))
         self.g_over_p = spr.bsr_matrix(np.diag(self.eco.g_eq / self.eco.p_eq))
 
@@ -159,11 +160,11 @@ class LinearDynamics:
                          [self.matrix_Q().T, None]])
 
     def fixed_shortage_block_A(self):
-        fst = self.alpha * self.p_over_g - self.omega * spr.diags(self.eco.p_eq).dot(self.outer) \
-              / (self.eco.b * self.eco.labour_eq)
+        fst = self.alpha * self.p_over_g - self.omega * spr.diags(self.eco.p_eq).dot(self.U) \
+              / self.eco.b
         snd = spr.diags(self.eco.p_eq / (self.z * self.eco.g_eq)).dot(
             self.alphap * self.M1.transpose() / self.eco.b - self.alpha * self.M2.transpose())
-        thd = - self.alphap * spr.diags(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)).dot(self.outer) / \
+        thd = - self.alphap * self.eco.labour_eq * spr.diags(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)).dot(self.U) / \
               (self.eco.b * self.eco.b_eq)
 
         return fst + snd + thd
