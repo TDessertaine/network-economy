@@ -106,7 +106,7 @@ class LinearDynamics:
 
     def matrix_P(self):
         return spr.bmat([[spr.bsr_matrix(np.zeros((self.n, self.n))), None],
-                         [None, np.eye(self.n ** 2 + 2 * self.n + 1)]])
+                         [None, spr.eye(self.n ** 2 + 2 * self.n + 1)]])
 
     def forecast_block_V1(self):
         return -(self.beta + self.betap) * spr.diags(1. / self.z).dot(self.M2.transpose()) + self.betap * spr.eye(
@@ -137,12 +137,12 @@ class LinearDynamics:
     def matrix_F1(self):
         return spr.bmat([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
                           self.forecast_block_Y1(), None],
-                         [None, np.eye(self.n), None,
+                         [None, spr.eye(self.n), None,
                           None, None],
-                         [None, None, np.eye(self.n),
+                         [None, None, spr.eye(self.n),
                           None, None],
                          [None, None,
-                          None, np.eye(self.n ** 2), None],
+                          None, spr.eye(self.n ** 2), None],
                          [None, None, None,
                           None, 1]
                          ])
@@ -189,7 +189,7 @@ class LinearDynamics:
 
     def fixed_shortage_block_E(self):
         fst = self.alpha * self.tau_over_one_minus_f * self.eco.p_eq * self.eco.cons_eq / (
-                self.z * self.eco.g_eq) / self.eco.b_eq
+                self.z * self.eco.g_eq * self.eco.b_eq)
 
         snd = - self.omega * self.eco.p_eq * self.q / self.eco.labour_eq
         thd = - self.alphap * (1 + self.eco.house.r) * self.eco.p_eq * self.eco.cons_eq / \
@@ -243,16 +243,13 @@ class LinearDynamics:
         return (1 - self.eco.house.f) * (1 + self.eco.house.r)
 
     def matrix_Sf(self):
-        return spr.bmat([[np.eye(self.n), None, None,
-                          None, None],
-                         [np.eye(self.n), None, None,
-                          None, None],
+        return spr.bmat([[spr.eye(self.n), None, None, None, None],
+                         [spr.eye(self.n), None, None, None, None],
                          [self.fixed_shortage_block_A(), self.fixed_shortage_block_B(), self.fixed_shortage_block_C(),
                           self.fixed_shortage_block_D(), self.fixed_shortage_block_E()],
                          [self.fixed_shortage_block_F(), self.fixed_shortage_block_G(), self.fixed_shortage_block_H(),
                           self.fixed_shortage_block_I(), self.fixed_shortage_block_J()],
-                         [self.fixed_shortage_block_K(), None, None,
-                          None, self.fixed_shortage_block_L()]
+                         [self.fixed_shortage_block_K(), None, None, None, self.fixed_shortage_block_L()]
                          ])
 
     def fixed_shortage(self):
