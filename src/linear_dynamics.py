@@ -72,11 +72,11 @@ class LinearDynamics:
         self.betap = self.eco.firms.beta_p
         self.omega = self.eco.firms.omega
         self.z = self.eco.firms.z
-        self.tau = self.eco.house.phi * (1 + self.eco.house.r) * \
-                   (1 - self.eco.house.f) / (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
+        self.l = (1 + self.eco.house.r) * (1 - self.eco.house.f)
+        self.tau = self.eco.house.phi * self.l / (self.eco.house.phi + 1 - self.l)
 
         self.tau_over_one_minus_f = self.eco.house.phi * (1 + self.eco.house.r) \
-                                    / (self.eco.house.phi + 1 - (1 + self.eco.house.r) * (1 - self.eco.house.f))
+                                    / (self.eco.house.phi + 1 - self.l)
         self.q = 1 + self.eco.house.r - self.tau_over_one_minus_f
         # Auxiliary matrices
         tmp_diag1 = np.diag(np.power(self.z,
@@ -229,7 +229,7 @@ class LinearDynamics:
 
     def fixed_shortage_block_J(self):
         return -(1 + self.eco.house.r) * \
-               np.sum([np.exp(-self.eco.firms.sigma[i]) *
+               np.sum([np.exp(-self.eco.firms.sigma[i]) * self.eco.cons_eq[i] *
                        spr.kron(canonical_Rn(self.n, i).reshape((self.n, 1)),
                                 canonical_Rn(self.n, i).reshape((self.n, 1)))
                        for i in range(self.n)], axis=0) / self.eco.b_eq
@@ -240,7 +240,7 @@ class LinearDynamics:
                / self.eco.b
 
     def fixed_shortage_block_L(self):
-        return (1 - self.eco.house.f) * (1 + self.eco.house.r)
+        return self.l
 
     def matrix_Sf(self):
         return spr.bmat([[spr.eye(self.n), None, None, None, None],
