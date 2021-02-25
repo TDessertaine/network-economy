@@ -66,10 +66,10 @@ class LinearDynamics:
         self.eco = e
         self.eco.set_quantities()
         self.n = self.eco.n
-        self.alpha = self.eco.firms.alpha
-        self.alphap = self.eco.firms.alpha_p
-        self.beta = self.eco.firms.beta
-        self.betap = self.eco.firms.beta_p
+        self.alpha = self.eco.firms.alpha * np.ones(self.n)
+        self.alphap = self.eco.firms.alpha_p * np.ones(self.n)
+        self.beta = self.eco.firms.beta * np.ones(self.n)
+        self.betap = self.eco.firms.beta_p * np.ones(self.n)
         self.omega = self.eco.firms.omega
         self.z = self.eco.firms.z
         self.l = (1 + self.eco.house.r) * (1 - self.eco.house.f)
@@ -119,16 +119,16 @@ class LinearDynamics:
         return self.beta * spr.diags(self.eco.g_eq / (self.z * self.eco.p_eq)).dot(self.M2)
 
     def forecast_block_Y1(self):
-        return - self.betap * np.sum([spr.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
-                                      for i in range(self.n)], axis=0)
+        return - spr.diags(self.betap).dot(np.sum([spr.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
+                                      for i in range(self.n)], axis=0))
 
     def forecast_block_X2(self):
-        return - (self.beta + self.betap) * spr.diags(self.eco.cons_eq / (self.z * self.eco.p_eq))
+        return - spr.diags((self.beta + self.betap) * self.eco.cons_eq / (self.z * self.eco.p_eq))
 
     def forecast_block_Y2(self):
-        return - (self.betap + self.beta) * np.sum(
+        return - spr.diags(self.betap + self.beta).dot(np.sum(
             [spr.kron(canonical_Rn(self.n, i), spr.diags(self.z).dot(spr.eye(self.n) - canonical_Mn(self.n, i, i)))
-             for i in range(self.n)], axis=0)
+             for i in range(self.n)], axis=0))
 
     def forecast_block_Z2(self):
         return (self.betap + self.beta) * self.tau_over_one_minus_f * \
@@ -160,27 +160,27 @@ class LinearDynamics:
                          [self.matrix_Q().T, None]])
 
     def fixed_shortage_block_A(self):
-        fst = self.alpha * self.p_over_g - self.omega * spr.diags(self.eco.p_eq).dot(self.U) \
+        fst = spr.diags(self.alpha).dot(self.p_over_g) - self.omega * spr.diags(self.eco.p_eq).dot(self.U) \
               / self.eco.b
         snd = spr.diags(self.eco.p_eq / (self.z * self.eco.g_eq)).dot(
-            self.alphap * self.M1.transpose() / self.eco.b - self.alpha * self.M2.transpose())
-        thd = - self.alphap * self.eco.labour_eq * spr.diags(self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)).dot(self.U) / \
+            spr.diags(self.alphap).dot(self.M1.transpose()) / self.eco.b - spr.diags(self.alpha).dot(self.M2.transpose()))
+        thd = - self.eco.labour_eq * spr.diags(self.alphap * self.eco.p_eq * self.eco.cons_eq / (self.z * self.eco.g_eq)).dot(self.U) / \
               (self.eco.b * self.eco.b_eq)
 
         return fst + snd + thd
 
     def fixed_shortage_block_B(self):
-        return - self.alpha * self.p_over_g
+        return - spr.diags(self.alpha).dot(self.p_over_g)
 
     def fixed_shortage_block_C(self):
-        return spr.eye(self.n) - (self.alpha - self.alphap) * spr.diags(self.eco.cons_eq / (self.z * self.eco.g_eq)) \
-               - self.alphap * spr.diags(1. / self.z).dot(self.M1)
+        return spr.eye(self.n) - spr.diags((self.alpha - self.alphap) * self.eco.cons_eq / (self.z * self.eco.g_eq)) \
+               - spr.diags(self.alphap / self.z).dot(self.M1)
 
     def fixed_shortage_block_D(self):
-        fst = (self.alphap - self.alpha) * spr.diags(self.eco.p_eq /
+        fst = spr.diags((self.alphap - self.alpha) * self.eco.p_eq /
                                                      (self.z * self.eco.g_eq)).dot(spr.kron(np.ones(self.n),
                                                                                             spr.eye(self.n)))
-        snd = - self.alphap * spr.diags(1. / (self.z * self.eco.g_eq)).dot(
+        snd = - spr.diags(self.alphap / (self.z * self.eco.g_eq)).dot(
             np.sum([spr.kron(canonical_Rn(self.n, i),
                              np.outer(canonical_Rn(self.n, i), self.eco.p_eq))
                     for i in range(self.n)], axis=0)
