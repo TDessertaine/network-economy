@@ -109,14 +109,13 @@ class LinearDynamics:
                          [None, spr.eye(self.n ** 2 + 2 * self.n + 1)]])
 
     def forecast_block_V1(self):
-        return -(self.beta + self.betap) * spr.diags(1. / self.z).dot(self.M2.transpose()) + self.betap * spr.eye(
-            self.n)
+        return - spr.diags((self.beta + self.betap) / self.z).dot(self.M2.transpose()) + spr.diags(self.betap)
 
     def forecast_block_W1(self):
-        return (1 - self.betap) * spr.eye(self.n)
+        return spr.diags(1 - self.betap)
 
     def forecast_block_X1(self):
-        return self.beta * spr.diags(self.eco.g_eq / (self.z * self.eco.p_eq)).dot(self.M2)
+        return spr.diags(self.beta * self.eco.g_eq / (self.z * self.eco.p_eq)).dot(self.M2)
 
     def forecast_block_Y1(self):
         return - spr.diags(self.betap).dot(np.sum([spr.kron(canonical_Rn(self.n, i), canonical_Mn(self.n, i, i)) / self.z[i]
