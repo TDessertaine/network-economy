@@ -130,8 +130,8 @@ class LinearDynamics:
              for i in range(self.n)], axis=0))
 
     def forecast_block_Z2(self):
-        return (self.betap + self.beta) * self.tau_over_one_minus_f * \
-               (self.eco.cons_eq / self.z).reshape((self.n, 1)) / self.eco.b_eq
+        return self.tau_over_one_minus_f * \
+               ((self.betap + self.beta) * self.eco.cons_eq / self.z).reshape((self.n, 1)) / self.eco.b_eq
 
     def matrix_F1(self):
         return spr.bmat([[self.forecast_block_V1(), self.forecast_block_W1(), self.forecast_block_X1(),
