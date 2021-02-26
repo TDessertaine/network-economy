@@ -276,4 +276,15 @@ class LinearDynamics:
         return np.linalg.eigvals(self.fixed_dynamical().toarray())
 
     def get_eigenvalues_theoretical_infinite_eps(self):
-        return
+        return self.theoretical_eigenvalues_infinite_eps(self.alpha,
+                                                         self.alphap,
+                                                         self.beta,
+                                                         self.betap,
+                                                         self.omega,
+                                                         self.eco.firms.sigma,
+                                                         self.eco.kappa,
+                                                         self.eco.b,
+                                                         self.eco.house.f,
+                                                         self.eco.house.r,
+                                                         self.eco.house.phi,
+                                                         self.eco.lseq)
