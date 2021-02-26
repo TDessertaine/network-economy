@@ -63,11 +63,17 @@ class LinearDynamics:
         for k in range(len(alphav)):
             p = p * cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b)
 
+        p_omit_factor = np.array([np.poly1d([1]) for i in range(len(alphav))])
+        for k in range(len(alphav)):
+            for j in range(len(alphav)):
+                if j != k:
+                    p[k] = p[k] * cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b)
+
         s = np.poly1d([0])
         for k in range(len(kappa)):
             s = s + kappa[k] * cls.infinite_eps_pol2(alphav[k], alphapv[k], betav[k], betapv[k], omega, sigmav[k],
                                                      b, f, r, phi) \
-                * (p / cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b))[0]
+                * p_omit_factor[k]
         s = s / (b * lseq)
         final_polynomial = np.poly1d([1, -(1 + r)*(1 - f)]) * p + s
         return final_polynomial.roots()
