@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as spr
-
+import functools as ft
+from bigfloat import BigFloat, setcontext, Context
 
 def canonical_Rn(n, i):
     a = np.zeros(n)
@@ -52,33 +53,37 @@ class LinearDynamics:
                          delta_14 * (omega - (1 - alpha - alphap) * (1 - L)) + alpha * ((1 - L) * delta_13 - delta_11),
                          alpha * delta_hat - delta_14 * delta_tilde])
         pol = np.polyadd(np.polymul([1, -e], pol1), +e * pol2)
-        return np.poly1d(np.polymul([-1, 0], pol) / b)
+        return np.poly1d(np.polymul([-1, 0], pol))
 
     @classmethod
     def theoretical_eigenvalues_infinite_eps(cls, alphav, alphapv, betav, betapv, omega, sigmav, kappa, b, f, r, phi, lseq):
-        if not(len(alphav) == len(alphapv) == len(betav) == len(betapv) == len(sigmav) == len(kappa)):
-            raise ValueError('All input arrays must be of same length.')
-
-        p = np.poly1d([1])
-        for k in range(len(alphav)):
-            p = p * cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b)
-
-        p_omit_factor = []
-        for k in range(len(alphav)):
-            tmp = np.poly1d([1])
-            for j in range(len(alphav)):
-                if j != k:
-                    tmp = tmp * cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b)
-            p_omit_factor.append(tmp)
-
-        s = np.poly1d([0])
-        for k in range(len(kappa)):
-            s = s + kappa[k] * cls.infinite_eps_pol2(alphav[k], alphapv[k], betav[k], betapv[k], omega, sigmav[k],
-                                                     b, f, r, phi) \
-                * p_omit_factor[k]
-        s = s / (b * lseq)
-        final_polynomial = np.poly1d([1, -(1 + r)*(1 - f)]) * p + s
-        return final_polynomial.roots()
+        pass #TODO
+        # if not(len(alphav) == len(alphapv) == len(betav) == len(betapv) == len(sigmav) == len(kappa)):
+        #     raise ValueError('All input arrays must be of same length.')
+        #
+        # p_roots = []
+        # for k in range(len(alphav)):
+        #     p_roots.append(cls.infinite_eps_pol1(alphav[k], alphapv[k], betav[k], betapv[k], sigmav[k], b).roots)
+        # p_roots = np.array(p_roots)
+        # p_roots = p_roots.reshape(np.prod(p_roots.shape))
+        # p_factors = np.c_[np.ones_like(p_roots), -p_roots]
+        #
+        # setcontext(Context(precision=100))
+        # # convert array elements
+        # Lb = np.frompyfunc(BigFloat, 1, 1)(p_factors)
+        # fullprod = ft.reduce(np.polymul, Lb)
+        # fullprod = np.polymul(np.poly1d([1, -(1+r)*(1-f)]), fullprod)
+        #
+        # s = np.poly1d([0])
+        # step = int(len(p_roots) / len(alphav))
+        # for k in range(len(kappa)):
+        #     Lb = np.frompyfunc(BigFloat, 1, 1)(p_factors[k])
+        #     s = s + kappa[k] * cls.infinite_eps_pol2(alphav[k], alphapv[k], betav[k], betapv[k], omega, sigmav[k],
+        #                                              b, f, r, phi) \
+        #         * p_omit_factor[k]
+        # s = s / (b * lseq)
+        # final_polynomial = np.poly1d([1, -(1 + r)*(1 - f)]) * p + s
+        # return final_polynomial.roots()
 
     def __init__(self, e):
         # Underlying economy
