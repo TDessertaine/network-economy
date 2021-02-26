@@ -293,4 +293,4 @@ class LinearDynamics:
                                                          self.eco.house.f,
                                                          self.eco.house.r,
                                                          self.eco.house.phi,
-                                                         self.eco.lseq)
+                                                         self.eco.labour_eq)
