@@ -126,7 +126,7 @@ class LinearDynamics:
 
     def forecast_block_Y2(self):
         return - spr.diags(self.betap + self.beta).dot(np.sum(
-            [spr.kron(canonical_Rn(self.n, i), spr.diags(self.z).dot(spr.eye(self.n) - canonical_Mn(self.n, i, i)))
+            [spr.kron(canonical_Rn(self.n, i), spr.diags(1./self.z).dot(spr.eye(self.n) - canonical_Mn(self.n, i, i)))
              for i in range(self.n)], axis=0))
 
     def forecast_block_Z2(self):
