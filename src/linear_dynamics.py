@@ -298,7 +298,7 @@ class LinearDynamics:
         c4 = np.kron(np.ones(self.n), canonical_Rn(self.n, i))
         c5 = -self.tau_over_one_minus_f * self.eco.cons_eq[i] / self.eco.b_eq
         c6 = np.zeros(self.n)
-        return spr.vstack([c1, c2, c3, c4, c5, c6])
+        return spr.hstack([c1, c2, c3, c4, c5, c6])
 
 
     def get_eigenvalues_theoretical_infinite_eps(self):
