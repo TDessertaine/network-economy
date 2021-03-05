@@ -202,7 +202,7 @@ class Dynamics(object):
         self.q_exchange[t, 1:, 0] = self.q_demand[t, 1:, 0] * np.minimum(1, self.labour[t] / np.sum(
             self.q_demand[t, 1:, 0]))
 
-        self.budget = self.savings + np.sum(self.q_exchange[t, 1:, 0])
+        self.budget = self.savings[t] + np.sum(self.q_exchange[t, 1:, 0])
 
         self.q_demand[t, 0, 1:] = self.q_demand[t, 0, 1:] * (self.nu + (1 - self.nu) *
                                                              np.minimum(1, self.budget /
