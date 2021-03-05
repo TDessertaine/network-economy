@@ -267,7 +267,7 @@ class Dynamics(object):
         # (3) Price rescaling
         self.prices[t + 1] = self.prices[t + 1] / self.wages[t + 1]
         self.budget = self.budget / self.wages[t + 1]
-        self.savings[t + 1] = (1 + self.eco.house.r) * np.maximum(self.savings, 0) / self.wages[t + 1]
+        self.savings[t + 1] = (1 + self.eco.house.r) * np.maximum(self.savings[t + 1], 0) / self.wages[t + 1]
         # Clipping to avoid negative almost zero values
 
         # The household performs its optimization to set its consumption target and its labour supply for the next
