@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as spr
 import functools as ft
-from bigfloat import BigFloat, setcontext, Context
+
 
 def canonical_Rn(n, i):
     a = np.zeros(n)
@@ -12,7 +12,7 @@ def canonical_Rn(n, i):
 def canonical_Mn(n, i, j):
     a = np.zeros((n, n))
     a[i, j] = 1
-    return spr.bsr_matrix(np.outer(canonical_Rn(n, i)), np.outer(canonical_Rn(n, j)))
+    return spr.bsr_matrix(np.outer(canonical_Rn(n, i), canonical_Rn(n, j)))
 
 
 def constant_line_one(n, i):
@@ -292,7 +292,7 @@ class LinearDynamics:
         if i >= self.n:
             raise ValueError('Input i must be less than the number of firms')
 
-        c1 = self.M2[:, i].T - self.z[i] * canonical_Rn(self.n, i)
+        c1 = self.M2.toarray()[:, i].T - self.z[i] * canonical_Rn(self.n, i)
         c2 = self.z[i] * canonical_Rn(self.n, i)
         c3 = self.eco.cons_eq[i] * canonical_Rn(self.n, i) / self.eco.p_eq[i]
         c4 = np.kron(np.ones(self.n), canonical_Rn(self.n, i))
