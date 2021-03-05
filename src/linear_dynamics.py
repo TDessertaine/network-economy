@@ -288,7 +288,21 @@ class LinearDynamics:
     def get_eigenvalues_fixed_dynamical(self):
         return np.linalg.eigvals(self.fixed_dynamical().toarray())
 
+    def cone_good(self, i):
+        if i >= self.n:
+            raise ValueError('Input i must be less than the number of firms')
+
+        c1 = self.M2[:, i].T - self.z[i] * canonical_Rn(self.n, i)
+        c2 = self.z[i] * canonical_Rn(self.n, i)
+        c3 = self.eco.cons_eq[i] * canonical_Rn(self.n, i) / self.eco.p_eq[i]
+        c4 = np.kron(np.ones(self.n), canonical_Rn(self.n, i))
+        c5 = -self.tau_over_one_minus_f * self.eco.cons_eq[i] / self.eco.b_eq
+        c6 = np.zeros(self.n)
+        return spr.vstack([c1, c2, c3, c4, c5, c6])
+
+
     def get_eigenvalues_theoretical_infinite_eps(self):
+        # TODO
         return self.theoretical_eigenvalues_infinite_eps(self.alpha,
                                                          self.alphap,
                                                          self.beta,
