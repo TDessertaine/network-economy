@@ -57,7 +57,7 @@ class Dynamics(object):
         self.q_prod = np.zeros((self.n, self.n + 1))
         self.q_used = np.zeros((self.n, self.n + 1))
         self.budget = 0
-        self.savings = 0
+        self.savings = np.zeros(int((self.t_max + 1) / self.step_s))
         self.labour = np.zeros(int((t_max + 1) / self.step_s))
 
         # Whether to store the dynamics in a h5 format
@@ -100,7 +100,7 @@ class Dynamics(object):
         self.q_prod = np.zeros((self.n, self.n + 1))
         self.q_used = np.zeros((self.n, self.n + 1))
         self.budget = 0
-        self.savings = 0
+        self.savings = np.zeros(int((self.t_max + 1) / self.step_s))
         self.labour = np.zeros(int((self.t_max + 1) / self.step_s))
 
     # Setters for simulation parameters
@@ -218,7 +218,7 @@ class Dynamics(object):
         self.q_exchange[t, 0, 1:] = self.q_exchange[t, 0, 1:] * np.minimum(1, self.eco.house.f * self.budget / (
             np.dot(self.q_exchange[t, 0, 1:], self.prices[t])))
 
-        self.savings = self.budget - np.dot(self.prices[t], self.q_exchange[t, 0, 1:])
+        self.savings[t] = self.budget - np.dot(self.prices[t], self.q_exchange[t, 0, 1:])
 
         self.q_prod[:, 0] = self.q_exchange[t, 1:, 0]
         self.q_prod[:, 1:] = self.q_exchange[t, 1:, 1:] + np.minimum(
@@ -267,7 +267,7 @@ class Dynamics(object):
         # (3) Price rescaling
         self.prices[t + 1] = self.prices[t + 1] / self.wages[t + 1]
         self.budget = self.budget / self.wages[t + 1]
-        self.savings = (1 + self.eco.house.r) * np.maximum(self.savings, 0) / self.wages[t + 1]
+        self.savings[t] = (1 + self.eco.house.r) * np.maximum(self.savings, 0) / self.wages[t + 1]
         # Clipping to avoid negative almost zero values
 
         # The household performs its optimization to set its consumption target and its labour supply for the next
@@ -289,14 +289,14 @@ class Dynamics(object):
 
         # Setting initial conditions
         self.wages[1] = self.w0
-        self.savings = self.B0 / self.w0
+        self.savings[1] = self.B0 / self.w0
 
         self.prods[1] = self.g0
         self.stocks[1] = self.s0
         self.prices[1] = self.p0 / self.w0
         self.prices_non_res[1] = self.p0
         self.q_demand[1, 0, 1:], self.labour[1] = \
-            self.eco.house.compute_demand_cons_labour_supply(self.savings,
+            self.eco.house.compute_demand_cons_labour_supply(self.savings[1],
                                                              self.prices[1],
                                                              1,
                                                              1,
