@@ -317,9 +317,9 @@ class LinearDynamics:
                                                          self.eco.house.phi,
                                                          self.eco.labour_eq)
 
-    def fixed_linear_dynamics(self, tmax, delta_t, delta_g_next, delta_u, delta_y, delta_s):
+    def fixed_linear_dynamics(self, tmax, delta_t_next, delta_g, delta_u, delta_y, delta_s, delta_t):
         Df = self.fixed_dynamical()
-        U = [spr.bsr_matrix(np.concatenate((delta_t, delta_g_next, delta_u, delta_y, delta_s))).transpose()]
+        U = [spr.bsr_matrix(np.concatenate((delta_t_next, delta_g, delta_u, delta_y, delta_s, delta_t_next))).transpose()]
         for t in range(tmax):
             U.append(Df.dot(U[-1]))
         return U
