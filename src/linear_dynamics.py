@@ -26,16 +26,17 @@ class LinearDynamics:
         e = np.exp(-sigma)
         delta_14 = betap * e + alpha * beta
         return np.poly1d(np.polyadd(np.polymul(np.array([1, -e]),
-                                     np.array([1,
-                                               -(2 - alpha - betap - beta + alphap * beta / b),
-                                               (1 - alpha) * (1 - beta - betap) + alpha * beta + (
-                                                       beta + betap) * alphap / b + e * betap * (1 + alphap / b),
-                                               -alpha * (beta + betap) - betap * e])
-                                     ),
-                          e * np.array([
-                              alpha,
-                              delta_14 * (1 + alphap / b) - alpha * (1 - beta - betap + alphap * beta / b),
-                              -(delta_14 + alpha * betap)])))
+                                               np.array([1,
+                                                         -(2 - alpha - betap - beta + alphap * beta / b),
+                                                         (1 - alpha) * (1 - beta - betap) + alpha * beta + (
+                                                                 beta + betap) * alphap / b + e * betap * (
+                                                                     1 + alphap / b),
+                                                         -alpha * (beta + betap) - betap * e])
+                                               ),
+                                    e * np.array([
+                                        alpha,
+                                        delta_14 * (1 + alphap / b) - alpha * (1 - beta - betap + alphap * beta / b),
+                                        -(delta_14 + alpha * betap)])))
 
     @staticmethod
     def infinite_eps_pol2(alpha, alphap, beta, betap, omega, sigma, b, f, r, phi):
@@ -56,8 +57,9 @@ class LinearDynamics:
         return np.poly1d(np.polymul([-1, 0], pol))
 
     @classmethod
-    def theoretical_eigenvalues_infinite_eps(cls, alphav, alphapv, betav, betapv, omega, sigmav, kappa, b, f, r, phi, lseq):
-        pass #TODO
+    def theoretical_eigenvalues_infinite_eps(cls, alphav, alphapv, betav, betapv, omega, sigmav, kappa, b, f, r, phi,
+                                             lseq):
+        pass  # TODO
         # if not(len(alphav) == len(alphapv) == len(betav) == len(betapv) == len(sigmav) == len(kappa)):
         #     raise ValueError('All input arrays must be of same length.')
         #
@@ -300,7 +302,6 @@ class LinearDynamics:
         c6 = np.zeros(self.n)
         return spr.hstack([c1, c2, c3, c4, c5, c6])
 
-
     def get_eigenvalues_theoretical_infinite_eps(self):
         # TODO
         return self.theoretical_eigenvalues_infinite_eps(self.alpha,
@@ -315,3 +316,10 @@ class LinearDynamics:
                                                          self.eco.house.r,
                                                          self.eco.house.phi,
                                                          self.eco.labour_eq)
+
+    def fixed_linear_dynamics(self, tmax, delta_t, delta_g_next, delta_u, delta_y, delta_s):
+        Df = self.fixed_dynamical()
+        U = [spr.bsr_matrix(np.concatenate((delta_t, delta_g_next, delta_u, delta_y, delta_s))).transpose()]
+        for t in range(tmax):
+            U.append(Df.dot(U[-1]))
+        return U
