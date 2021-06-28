@@ -31,24 +31,27 @@ from scipy.optimize import leastsq
 
 from firms import Firms
 from household import Household
-from network import create_net
+from network import create_net, create_global_j
 
 warnings.simplefilter("ignore")
 
 
 class Economy:
 
-    def __init__(self, n, d, netstring, directed, j0, a0, q, b):
+    def __init__(self, n, m, d, netstring, directed, j0, a0, q, b):
 
         # Network initialization
         self.n = n
-        self.j = create_net(netstring, directed, n, d)
+        self.m = m
+        if self.n % self.m != 0:
+            raise ValueError('Please choose N and M such that N is divisible by M.')
+
+        self.j_sector = create_net(netstring, directed, m, d)
+        self.j, self.current_supplier, self.firms_sectors, self.sectors_firms = create_global_j(self.n, self.m, self.j_sector)
         self.j0 = j0
-        self.j_a = None
         self.a0 = a0
-        a = np.multiply(np.random.uniform(0, 1, (n, n)), self.j)
-        self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i]) for i in range(n)])
-        self.a_a = None
+        self.a_goods = np.random.uniform(0, 1, (n, n))
+        self.a = np.array([(1 - a0[i]) * self.a_goods[i] / np.sum(self.a_goods[i]) for i in range(n)])
         self.q = q
         self.zeta = 1 / (q + 1)
         self.b = b

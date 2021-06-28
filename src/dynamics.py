@@ -20,7 +20,6 @@ The ``dynamics`` module
 This module declares the Dynamics class which simulate the dynamics of the Network Economy ABM.
 """
 
-
 import warnings
 import numpy as np
 import pandas as pd
@@ -280,7 +279,39 @@ class Dynamics(object):
                                                              self.step_s
                                                              )
 
-    def discrete_dynamics(self):
+    def rewiring(self, t, phi, temp):
+        spont_rewiring = np.random.choice([True, False], self.n, p=[phi, 1 - phi])
+        costs = np.matmul(self.q_exchange[t, 1:, 1:], np.diag(self.prices[t]))
+        #eps = self.eco.get_eps_cal()
+        for firm in range(self.n):
+            if spont_rewiring[firm]:
+                try:
+
+                    proba_sector = costs[firm] / np.sum(costs[firm])
+                    #print(costs[firm])
+                    supplier = np.random.choice(np.arange(self.n), 1, p=proba_sector)
+                    sector_of_supplier = self.eco.firms_sectors[supplier]
+                    #print(self.prices[t, self.eco.sectors_firms[sector_of_supplier]])
+                    proba_supplier = np.exp(-self.prices[t, self.eco.sectors_firms[sector_of_supplier]]
+                                            / (temp * self.eco.a_goods[firm, self.eco.sectors_firms[sector_of_supplier]]))[0]
+                    #print(self.eco.a[firm, self.eco.sectors_firms[sector_of_supplier]])
+                    #print(proba_supplier/np.sum(proba_supplier))
+                    #print(self.eco.sectors_firms[sector_of_supplier])
+                    new_supplier = np.random.choice(self.eco.sectors_firms[sector_of_supplier][0],
+                                                    1,
+                                                    p=proba_supplier/np.sum(proba_supplier))
+                    #print('ok')
+                    #print((t, firm, supplier, new_supplier))
+                    self.eco.j[firm, supplier] = 0
+                    self.eco.j[firm, new_supplier] = 1
+                    #print('ok2')
+                except:
+                    print('fail')
+                    pass
+        self.eco.set_quantities()
+        #self.eco.set_eps_cal(eps)
+
+    def discrete_dynamics(self, phi, temp):
         """
         Main function to run the dynamics of the Network Economy ABM.
         :return: Side-effect
@@ -325,6 +356,7 @@ class Dynamics(object):
             self.planning(t)
             self.exchanges_and_updates(t)
             self.production(t)
+            self.rewiring(t, phi, temp)
             t += 1
 
         # The current information stocked in the dynamics class are in accordance with the provided initial conditions.

@@ -209,3 +209,18 @@ def _position_nodes(g, partition, **kwargs):
         pos.update(pos_subgraph)
 
     return pos
+
+def create_global_j(n, m, j_sector):
+    firms_sectors = (np.arange(n) // np.ceil(n / m)).astype(int)
+    sectors_firms = np.zeros((m, int(np.ceil(n / m))))
+    for S in range(m):
+        sectors_firms[S] = np.where(firms_sectors == S)[0]
+    sectors_firms = sectors_firms.astype(int)
+    j = np.zeros((n, n), dtype=int)
+    current_supplier = np.zeros((n, m), dtype=int)
+    for i in range(n):
+        for S in np.where(j_sector[firms_sectors[i]] == 1)[0]:
+            k = np.random.choice(sectors_firms[S])
+            j[i, k] = 1
+            current_supplier[i, S] = int(k + 1)
+    return j, current_supplier, firms_sectors, sectors_firms
