@@ -185,10 +185,10 @@ class Economy:
         """
         if j.shape != (self.n, self.n):
             raise ValueError('Input-output network must be of size (%d, %d)' % (self.n, self.n))
-
+        #print('ok')
         self.j = j
         self.set_quantities()
-        self.compute_eq()
+        #self.compute_eq()
 
     def set_a(self, a):
         """

@@ -280,35 +280,30 @@ class Dynamics(object):
                                                              )
 
     def rewiring(self, t, phi, temp):
-        spont_rewiring = np.random.choice([True, False], self.n, p=[phi, 1 - phi])
+        spont_rewiring = np.random.choice([True, False], 1, p=[phi, 1 - phi])
         costs = np.matmul(self.q_exchange[t, 1:, 1:], np.diag(self.prices[t]))
-        #eps = self.eco.get_eps_cal()
-        for firm in range(self.n):
-            if spont_rewiring[firm]:
-                try:
+        firm = np.random.choice(np.arange(self.n))
+        if spont_rewiring:
+            try:
+                proba_sector = costs[firm] / np.sum(costs[firm])
+                supplier = np.random.choice(np.arange(self.n), 1, p=proba_sector)
+                sector_of_supplier = self.eco.firms_sectors[supplier]
+                proba_supplier = np.exp(-self.prices[t, self.eco.sectors_firms[sector_of_supplier]]
+                                        / (temp * self.eco.a_goods[firm, self.eco.sectors_firms[sector_of_supplier]]))[0]
+                new_supplier = np.random.choice(self.eco.sectors_firms[sector_of_supplier][0],
+                                                1,
+                                                p=proba_supplier/np.sum(proba_supplier))
+                j = self.eco.j.copy()
+                j[firm, supplier] = 0
+                j[firm, new_supplier] = 1
+                self.eco.set_j(j)
+                #self.eco.set_quantities()
 
-                    proba_sector = costs[firm] / np.sum(costs[firm])
-                    #print(costs[firm])
-                    supplier = np.random.choice(np.arange(self.n), 1, p=proba_sector)
-                    sector_of_supplier = self.eco.firms_sectors[supplier]
-                    #print(self.prices[t, self.eco.sectors_firms[sector_of_supplier]])
-                    proba_supplier = np.exp(-self.prices[t, self.eco.sectors_firms[sector_of_supplier]]
-                                            / (temp * self.eco.a_goods[firm, self.eco.sectors_firms[sector_of_supplier]]))[0]
-                    #print(self.eco.a[firm, self.eco.sectors_firms[sector_of_supplier]])
-                    #print(proba_supplier/np.sum(proba_supplier))
-                    #print(self.eco.sectors_firms[sector_of_supplier])
-                    new_supplier = np.random.choice(self.eco.sectors_firms[sector_of_supplier][0],
-                                                    1,
-                                                    p=proba_supplier/np.sum(proba_supplier))
-                    #print('ok')
-                    #print((t, firm, supplier, new_supplier))
-                    self.eco.j[firm, supplier] = 0
-                    self.eco.j[firm, new_supplier] = 1
-                    #print('ok2')
-                except:
-                    print('fail')
-                    pass
-        self.eco.set_quantities()
+                return (t, firm, supplier, new_supplier)
+            except:
+                print('fail')
+                return None
+
         #self.eco.set_eps_cal(eps)
 
     def discrete_dynamics(self, phi, temp):
@@ -352,15 +347,23 @@ class Dynamics(object):
         self.production(1)
         # End of first time-step
         t = 2
+        rew_hist = []
+        j_hist = []
+        eps_hist = []
         while t < int((self.t_max + 1) / self.step_s - 1):
             self.planning(t)
             self.exchanges_and_updates(t)
             self.production(t)
-            self.rewiring(t, phi, temp)
+            rew = self.rewiring(t, phi, temp)
+            if rew:
+                rew_hist.append(rew)
+                j_hist.append(self.eco.lamb)
+                eps_hist.append(self.eco.get_eps_cal())
             t += 1
 
         # The current information stocked in the dynamics class are in accordance with the provided initial conditions.
         self.run_with_current_ic = True
+        return rew_hist, j_hist, eps_hist
 
     # Classification methods
 

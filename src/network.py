@@ -112,6 +112,8 @@ def create_net(net_str, directed, n, d):
             return mdir_rrg(d, n)
         elif net_str == 'er':
             return er(n, d / n, directed=directed)
+        elif net_str == 'sf':
+            return np.array(nx.convert_matrix.to_numpy_matrix(nx.scale_free_graph(n), multigraph_weight=min))
     else:
         if net_str == 'regular':
             return undir_rrg(d, n)
