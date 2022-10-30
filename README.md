@@ -6,5 +6,5 @@ A module to simulate the Network Economy Agents-Based Model described in ***HERE
 
 To install all requirements, run
 ```bash
-pip intall -r requirements.txt
+pip install -r requirements.txt
 ```
