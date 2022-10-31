@@ -1,4 +1,4 @@
-# network-economy is a simulation program for the Network Economy ABM desbribed in (TODO)
+# network-economy is a simulation program for the Network Economy ABM desbribed in <https://doi.org/10.1016/j.jedc.2022.104362>
 # Copyright (C) 2020 Théo Dessertaine
 #
 # This program is free software: you can redistribute it and/or modify
@@ -300,8 +300,10 @@ class Economy:
         :return: production levels of the firms.
         """
         if self.q == 0:
-            return np.power(np.nanmin(np.divide(q_available, self.j_a),
+            prod = np.power(np.nanmin(np.divide(q_available, self.j_a),
                                       axis=1), self.b)
+            #print(prod)
+            return prod
         elif self.q == np.inf:
             return np.power(np.nanprod(np.power(np.divide(q_available, self.j_a),
                                                 self.a_a),

@@ -1,4 +1,4 @@
-# network-economy is a simulation program for the Network Economy ABM desbribed in (TODO)
+# network-economy is a simulation program for the Network Economy ABM desbribed in <https://doi.org/10.1016/j.jedc.2022.104362>
 # Copyright (C) 2020 Théo Dessertaine
 #
 # This program is free software: you can redistribute it and/or modify

@@ -1,4 +1,4 @@
-# network-economy is a simulation program for the Network Economy ABM desbribed in (TODO)
+# network-economy is a simulation program for the Network Economy ABM desbribed in <https://doi.org/10.1016/j.jedc.2022.104362>
 # Copyright (C) 2020 Théo Dessertaine
 #
 # This program is free software: you can redistribute it and/or modify
@@ -133,6 +133,7 @@ class Firms:
         if e.q == 0:
             demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / e.b)),
                                                 e.lamb_a)
+            #print(demanded_products_labor)
         elif e.q == np.inf:
             prices_net_aux = np.array([
                 np.prod(np.power(e.j_a[i, :] * np.concatenate((np.array([1]), prices)) /
