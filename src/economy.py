@@ -36,22 +36,71 @@ from network import create_net
 warnings.simplefilter("ignore")
 
 
-class Economy:
+net_type = ['regular', 'm-regular', 'er']
 
-    def __init__(self, n, d, netstring, directed, j0, a0, q, b):
+
+class Economy:
+    """
+
+    """
+
+    def __init__(self, n: int = None, d: int = None, netstring: str = None, directed: bool = None, j0: np.array = None, a0: np.array = None, q: float = None, b: float = None) -> None:
+        """_summary_
+
+        Args:
+            n (int > 0): Number of firms in the network. 
+            d (int > 0): Average number of in and out links in the network.
+            netstring (str): _description_
+            directed (bool): _description_
+            j0 (np.array): _description_
+            a0 (np.array): _description_
+            q (float): _description_
+            b (float): _description_
+
+        Returns:
+            object: _description_
+        """
+
+        if not n > 0:
+            raise ValueError("n must be a positive integer.")
+
+        if not d >= 0:
+            raise ValueError("d must be a positive integer.")
+
+        if not netstring in net_type:
+            raise ValueError(
+                "netstring not supported. Please choose 'regular' for regular, 'm-regular' for multi-regular, 'er' for Erdös-Renyi.")
+
+        if j0.any() < 0:
+            raise ValueError("Entries of j0 must be greater or equal to 0.")
+
+        if a0.any() < 0 or a0.any() > 1:
+            raise ValueError("Entries of a0 must be between 0 and 1.")
+
+        if not q >= 0:
+            raise ValueError("q must be a positive real number.")
+
+        if not b >= 0:
+            raise ValueError("b must be a positive real number.")
 
         # Network initialization
-        self.n = n
-        self.j = create_net(netstring, directed, n, d)
-        self.j0 = j0
-        self.j_a = None
-        self.a0 = a0
+        self.n = n if n else 100
+        d = d if d else 15
+        netstring = netstring if netstring else 'm_regular'
+        directed = directed if directed else True
+
+        self.j = create_net(netstring, directed, n, d)  # Network creation
+        self.j0 = j0 if j0 else np.ones(self.n)
+        self.a0 = a0 if a0 else 0.5 * np.ones(self.n)
+
         a = np.multiply(np.random.uniform(0, 1, (n, n)), self.j)
-        self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i]) for i in range(n)])
-        self.a_a = None
-        self.q = q
+
+        self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i])
+                          for i in range(n)])
+
+        self.q = q if q else 0
         self.zeta = 1 / (q + 1)
-        self.b = b
+        self.b = b if b else 1
 
         # Auxiliary network variables
         self.lamb = None
@@ -181,7 +230,8 @@ class Economy:
         :return: side effect
         """
         if j.shape != (self.n, self.n):
-            raise ValueError('Input-output network must be of size (%d, %d)' % (self.n, self.n))
+            raise ValueError(
+                'Input-output network must be of size (%d, %d)' % (self.n, self.n))
 
         self.j = j
         self.set_quantities()
@@ -194,7 +244,8 @@ class Economy:
         :return: side effect
         """
         if a.shape != (self.n, self.n):
-            raise ValueError('Substitution network must be of size (%d, %d)' % (self.n, self.n))
+            raise ValueError(
+                'Substitution network must be of size (%d, %d)' % (self.n, self.n))
         self.a = a
         self.set_quantities()
         self.compute_eq()
@@ -229,7 +280,8 @@ class Economy:
             self.v = np.array(self.lamb_a[:, 0])
         self.mu_eq = np.power(np.power(self.house.gamma, 1./self.house.phi) * np.sum(self.house.theta) *
                               (1 - (1 - self.house.f) * (1 + self.house.r)) /
-                              (self.house.f * np.power(self.house.l_0, 1 + 1./self.house.phi)),
+                              (self.house.f * np.power(self.house.l_0,
+                               1 + 1./self.house.phi)),
                               self.house.phi / (1 + self.house.phi))
         self.kappa = self.house.theta / self.mu_eq
         self.zeros_j_a = self.j_a != 0
@@ -248,7 +300,9 @@ class Economy:
         :return: side effect.
         """
         min_eig = self.get_eps_cal()
-        z_n = self.firms.z * np.power(1 + (eps - min_eig) / np.power(self.firms.z, self.zeta), self.q + 1)
+        z_n = self.firms.z * \
+            np.power(1 + (eps - min_eig) /
+                     np.power(self.firms.z, self.zeta), self.q + 1)
         sigma = self.firms.sigma
         alpha = self.firms.alpha
         alpha_p = self.firms.alpha_p
@@ -277,14 +331,16 @@ class Economy:
     def update_network(self, netstring, directed, d, n):
         self.j = create_net(netstring, directed, n, d)
         a = np.multiply(np.random.uniform(0, 1, (n, n)), self.j)
-        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i]) for i in range(n)])
+        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i])
+                          for i in range(n)])
         self.set_quantities()
         self.compute_eq()
 
     def update_a0(self, a0):
         self.a0 = a0
         a = np.multiply(np.random.uniform(0, 1, (self.n, self.n)), self.j)
-        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i]) for i in range(self.n)])
+        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i])
+                          for i in range(self.n)])
         self.set_quantities()
         self.compute_eq()
 
@@ -302,7 +358,7 @@ class Economy:
         if self.q == 0:
             prod = np.power(np.nanmin(np.divide(q_available, self.j_a),
                                       axis=1), self.b)
-            #print(prod)
+            # print(prod)
             return prod
         elif self.q == np.inf:
             return np.power(np.nanprod(np.power(np.divide(q_available, self.j_a),
@@ -324,12 +380,14 @@ class Economy:
         :return: side effect.
         """
         if self.q == np.inf:
-            h = np.sum(self.a_a * np.log(np.ma.masked_invalid(np.divide(self.j_a, self.a_a))), axis=1)
+            h = np.sum(
+                self.a_a * np.log(np.ma.masked_invalid(np.divide(self.j_a, self.a_a))), axis=1)
             v = lstsq(np.eye(self.n) - self.a.T,
                       self.kappa,
                       rcond=10e-7)[0]
             log_p = lstsq(np.eye(self.n) / self.b - self.a,
-                          - np.log(self.firms.z) / self.b + (1 - self.b) * np.log(v) / self.b + h,
+                          - np.log(self.firms.z) / self.b +
+                          (1 - self.b) * np.log(v) / self.b + h,
                           rcond=10e-7)[0]
             log_g = - np.log(self.firms.z) - log_p + np.log(v)
             self.p_eq, self.g_eq = np.exp(log_p), np.exp(log_g)
@@ -340,7 +398,8 @@ class Economy:
                                            self.v,
                                            rcond=10e-7)[0]
                     init_guess_geq = lstsq(self.m_cal.T,
-                                           np.divide(self.kappa, init_guess_peq),
+                                           np.divide(
+                                               self.kappa, init_guess_peq),
                                            rcond=10e-7)[0]
 
                     par = (self.firms.z,
@@ -349,19 +408,21 @@ class Economy:
                            self.b - 1,
                            self.kappa)
 
-                    pert_peq = lstsq(self.m_cal, self.firms.z * init_guess_peq * np.log(init_guess_geq), rcond=10e-7)[0]
+                    pert_peq = lstsq(
+                        self.m_cal, self.firms.z * init_guess_peq * np.log(init_guess_geq), rcond=10e-7)[0]
 
                     pert_geq = lstsq(np.transpose(self.m_cal),
                                      - np.divide(self.kappa,
                                                  np.power(init_guess_peq, 2)) * pert_peq +
-                                     self.firms.z * init_guess_geq * np.log(init_guess_geq),
+                                     self.firms.z * init_guess_geq *
+                                     np.log(init_guess_geq),
                                      rcond=10e-7)[0]
 
                     pg = leastsq(lambda x: self.non_linear_eq_qzero(x, *par),
                                  np.array(np.concatenate((init_guess_peq + (1 - self.b) * pert_peq,
                                                           np.power(init_guess_geq + (1 - self.b) * (
-                                                                  pert_geq - init_guess_geq * np.log(init_guess_geq)),
-                                                                   1 / self.b))).reshape(2 * self.n)))[0]
+                                                              pert_geq - init_guess_geq * np.log(init_guess_geq)),
+                                     1 / self.b))).reshape(2 * self.n)))[0]
 
                     # pylint: disable=unbalanced-tuple-unpacking
                     self.p_eq, g = np.split(pg, 2)
@@ -416,9 +477,11 @@ class Economy:
                     w = lstsq(self.m_cal.T,
                               np.divide(self.kappa, u),
                               rcond=None)[0]
-                    self.g_eq = np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(u, self.q))
+                    self.g_eq = np.divide(w, np.power(
+                        self.firms.z, self.q * self.zeta) * np.power(u, self.q))
 
-        self.labour_eq = np.power(self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
+        self.labour_eq = np.power(
+            self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
         self.cons_eq = self.kappa / self.p_eq
         self.b_eq = np.sum(self.house.theta) / self.mu_eq
         self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(
@@ -431,7 +494,8 @@ class Economy:
         Saves the economy as multi-indexed data-frame in hdf format along with networks in npy format.
         :param name: name of file,
         """
-        first_index = np.concatenate((np.repeat('Firms', 11), np.repeat('Household', 11)))
+        first_index = np.concatenate(
+            (np.repeat('Firms', 11), np.repeat('Household', 11)))
         second_index = np.concatenate(
             (['q', 'b', 'z', 'sigma', 'alpha', 'alpha_p', 'beta', 'beta_p', 'w', 'p_eq', 'g_eq'],
              ['l', 'theta', 'gamma', 'phi']))
@@ -479,7 +543,8 @@ class Economy:
         # pylint: disable=unbalanced-tuple-unpacking
         u, w = np.split(x, 2)
         z_zeta, v, m_cal, q, exponent, kappa = p
-        w_over_uq_p = np.power(np.divide(w, np.power(z_zeta, q) * np.power(u, q)), exponent)
+        w_over_uq_p = np.power(
+            np.divide(w, np.power(z_zeta, q) * np.power(u, q)), exponent)
         v1 = np.multiply(z_zeta, np.multiply(u, 1 - w_over_uq_p))
         m1 = np.dot(m_cal, u)
         m2 = u * np.dot(m_cal.T, w) - w * m1
