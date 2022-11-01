@@ -69,10 +69,10 @@ class Economy:
             object: _description_
         """
 
-        if not firms_number > 0:
+        if firms_number <= 0:
             raise ValueError("n must be a positive integer.")
 
-        if not average_connectivity >= 0:
+        if average_connectivity < 0:
             raise ValueError("d must be a positive integer.")
 
         if not network_type in coded_network_type:
@@ -81,16 +81,16 @@ class Economy:
                 + " for multi-regular, 'er' for Erdös-Renyi."
             )
 
-        if work_vector.any() < 0:
+        if (work_vector < 0).any():
             raise ValueError("Entries of j0 must be greater or equal to 0.")
 
-        if work_substitution_vector.any() < 0 or work_substitution_vector.any() > 1:
+        if (work_substitution_vector < 0).any() or (work_substitution_vector > 1).any():
             raise ValueError("Entries of a0 must be between 0 and 1.")
 
-        if not ces_parameter >= 0:
+        if ces_parameter < 0:
             raise ValueError("q must be a positive real number.")
 
-        if not returns_to_scale >= 0:
+        if returns_to_scale < 0:
             raise ValueError("b must be a positive real number.")
 
         # Network initialization
@@ -160,7 +160,7 @@ class Economy:
         labour_baseline: float = None,
         preferency_factors: np.array = None,
         work_desutility_paramater: float = None,
-        convexity_to_work_parameter: float = None,
+        frisch_index: float = None,
         omega_prime: float = None,
         fraction_to_consume: float = None,
         interest_rate: float = None,
@@ -177,21 +177,67 @@ class Economy:
 
         Args:
             labour_baseline (float, optional):
-                Baseline work offer, corresponds to $L_0$. Default to 1.
+                Baseline work offer, corresponds to $L_0$.
+                Must be positive.
+                Default to 1.
             preferency_factors (np.array, optional):
                 Vector of preferency factors, corresponds to $\theta$.
-                Default to np.ones(firms_number)/firms_number
-            work_desutility_paramater (float, optional): aversion to work parameter. Defaults to None.
-            convexity_to_work_parameter (float, optional): _description_. Defaults to None.
-            omega_prime (float, optional): _description_. Defaults to None.
-            fraction_to_consume (float, optional): _description_. Defaults to None.
-            interest_rate (float, optional): _description_. Defaults to None.
+                Must be a positive array.
+                Default to np.ones(firms_number)/firms_number.
+            work_desutility_paramater (float, optional):
+                Aversion to work parameter, corresponds to $\Gamma$.
+                Must be positive.
+                Default to 1.
+            frisch_index (float, optional):
+                Frisch index, corresponds to $\phi$.
+                Must be positive.
+                Default to 1.
+            omega_prime (float, optional):
+                Adjustment speed of consumption's confidence, corresponds to $\omega^\prime$.
+                Must be positive.
+                Default to 0.
+            fraction_to_consume (float, optional):
+                Fraction of the budget allocated to consumption, corresponds to $f$.
+                Must be between 0 and 1.
+                Defaults to 1.
+            interest_rate (float, optional):
+                Interest rate on savings, corresponds to $r$. Must be between 0 and 1.
+                Defaults to 0.
         """
+        labour_baseline: float = (None,)
+        preferency_factors: np.array = (None,)
+        work_desutility_paramater: float = (None,)
+        frisch_index: float = (None,)
+        omega_prime: float = (None,)
+        fraction_to_consume: float = (None,)
+        interest_rate: float = (None,)
+
+        if labour_baseline <= 0:
+            raise ValueError("labour_basline must be positive.")
+
+        if (preferency_factors < 0).any():
+            raise ValueError("Entries of preferency_factor must be positive.")
+
+        if work_desutility_paramater < 0:
+            raise ValueError("work_desutility_paramater must be positive.")
+
+        if frisch_index < 0:
+            raise ValueError("frisch_index must be positive.")
+
+        if omega_prime < 0:
+            raise ValueError("omega_prime must be positive.")
+
+        if fraction_to_consume > 1 or fraction_to_consume < 0:
+            raise ValueError("fraction_to_consume must be between 0 and 1.")
+
+        if interest_rate > 1 or interest_rate < 0:
+            raise ValueError("interest_rate must be between 0 and 1.")
+
         self.household_sector = Household(
             labour_baseline,
             preferency_factors,
             work_desutility_paramater,
-            convexity_to_work_parameter,
+            frisch_index,
             omega_prime,
             fraction_to_consume,
             interest_rate,
