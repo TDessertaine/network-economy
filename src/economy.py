@@ -28,9 +28,11 @@ import warnings
 
 import numpy as np
 import pandas as pd
+
 from numpy.linalg import lstsq
 from scipy.optimize import leastsq
 
+import errors_strings
 from firms import Firms
 from household import Household
 from network import create_net
@@ -69,28 +71,32 @@ class Economy:
             object: _description_
         """
 
-        if firms_number <= 0:
+        if firms_number is not None and firms_number <= 0:
             raise ValueError("n must be a positive integer.")
 
-        if average_connectivity < 0:
+        if average_connectivity is not None and average_connectivity < 0:
             raise ValueError("d must be a positive integer.")
 
-        if not network_type in coded_network_type:
+        if network_type is not None and network_type not in coded_network_type:
             raise ValueError(
                 "netstring not supported. Please choose 'regular' for regular, 'm-regular'"
                 + " for multi-regular, 'er' for Erdös-Renyi."
             )
 
-        if (work_vector < 0).any():
+        if work_vector is not None and (work_vector < 0).any():
             raise ValueError("Entries of j0 must be greater or equal to 0.")
 
-        if (work_substitution_vector < 0).any() or (work_substitution_vector > 1).any():
+        if (
+            work_substitution_vector is not None
+            and (work_substitution_vector < 0).any()
+            or (work_substitution_vector > 1).any()
+        ):
             raise ValueError("Entries of a0 must be between 0 and 1.")
 
-        if ces_parameter < 0:
+        if ces_parameter is not None and ces_parameter < 0:
             raise ValueError("q must be a positive real number.")
 
-        if returns_to_scale < 0:
+        if returns_to_scale is not None and returns_to_scale < 0:
             raise ValueError("b must be a positive real number.")
 
         # Network initialization
@@ -165,15 +171,9 @@ class Economy:
         fraction_to_consume: float = None,
         interest_rate: float = None,
     ) -> None:
-        r"""Initialize a household object as instance of economy class. Refer to household class.
-        :param l_0: baseline work offer,
-        :param theta: preferency factors,
-        :param gamma: aversion to work parameter,
-        :param phi: Frisch index,
-        :param omega_p: confidence parameter
-        :param f: fraction of budget to save,
-        :param r: savings growth rate.
-        :return: Initializes household class with given parameters.
+
+        r"""Initialize a Household object as an instance of the Economy object.
+        Refer to initialization of Household class.
 
         Args:
             labour_baseline (float, optional):
@@ -201,37 +201,47 @@ class Economy:
                 Must be between 0 and 1.
                 Defaults to 1.
             interest_rate (float, optional):
-                Interest rate on savings, corresponds to $r$. Must be between 0 and 1.
+                Interest rate on savings, corresponds to $r$.
+                Must be between 0 and 1.
                 Defaults to 0.
         """
-        labour_baseline: float = (None,)
-        preferency_factors: np.array = (None,)
-        work_desutility_paramater: float = (None,)
-        frisch_index: float = (None,)
-        omega_prime: float = (None,)
-        fraction_to_consume: float = (None,)
-        interest_rate: float = (None,)
 
-        if labour_baseline <= 0:
+        if labour_baseline is not None and labour_baseline <= 0:
             raise ValueError("labour_basline must be positive.")
 
-        if (preferency_factors < 0).any():
+        if preferency_factors is not None and (preferency_factors < 0).any():
             raise ValueError("Entries of preferency_factor must be positive.")
 
-        if work_desutility_paramater < 0:
+        if work_desutility_paramater is not None and work_desutility_paramater < 0:
             raise ValueError("work_desutility_paramater must be positive.")
 
-        if frisch_index < 0:
+        if frisch_index is not None and frisch_index < 0:
             raise ValueError("frisch_index must be positive.")
 
-        if omega_prime < 0:
+        if omega_prime is not None and omega_prime < 0:
             raise ValueError("omega_prime must be positive.")
 
-        if fraction_to_consume > 1 or fraction_to_consume < 0:
+        if fraction_to_consume is not None and (
+            fraction_to_consume > 1 or fraction_to_consume < 0
+        ):
             raise ValueError("fraction_to_consume must be between 0 and 1.")
 
-        if interest_rate > 1 or interest_rate < 0:
+        if interest_rate is not None and (interest_rate > 1 or interest_rate < 0):
             raise ValueError("interest_rate must be between 0 and 1.")
+
+        labour_baseline = labour_baseline if labour_baseline else 1.0
+        preferency_factors = (
+            preferency_factors
+            if preferency_factors
+            else np.ones(self.firms_number) / self.firms_number
+        )
+        work_desutility_paramater = (
+            work_desutility_paramater if work_desutility_paramater else 1.0
+        )
+        frisch_index = frisch_index if frisch_index else 1.0
+        omega_prime = omega_prime if omega_prime else 0.0
+        fraction_to_consume = fraction_to_consume if fraction_to_consume else 1.0
+        interest_rate = interest_rate if interest_rate else 0.0
 
         self.household_sector = Household(
             labour_baseline,
@@ -243,42 +253,150 @@ class Economy:
             interest_rate,
         )
 
-    def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
+    def init_firms(
+        self,
+        productivity_factors: np.array = None,
+        depreciation_stock: np.array = None,
+        price_surplus_coupling: float = None,
+        price_profit_coupling: float = None,
+        production_profit_coupling: float = None,
+        production_surplus_coupling: float = None,
+        wage_labour_coupling: float = None,
+    ) -> None:
+        r"""Initializes a Firms object as an instance of the Economy object.
+        Refer to initialization of Firms class.
+
+        Args:
+            productivity_factors (np.array):
+                Vector of productivity factors, corresponds to $z$.
+                Must be positive.
+                Defaults to np.ones(self.firms_number).
+            depreciation_stock (np.array):
+                Depreciation of stocks parameters, corresponds to $\sigma$.
+                Must be positive.
+                Defaults to np.ones(self.firms_number).
+            price_surplus_coupling (float):
+                Adjustement speed of prices with respect to surplus, corresponds to $\alpha$.
+                Must be positive.
+                Defaults to 0.25.
+            price_profit_coupling (float):
+                Adjustement speed of prices with respect to profits, corresponds to $\alpha^\prime$.
+                Must be positive.
+                Defaults to 0.25.
+            production_profit_coupling (float):
+                Adjustement speed of productions with respect to profits, corresponds to $\beta$.
+                Must be positive.
+                Defaults to 0.25.
+            production_surplus_coupling (float):
+                Adjustement speed of productions with respect to surplus, corresponds to $\beta^\prime$.
+                Must be positive.
+                Defaults to 0.25.
+            wage_labour_coupling (float):
+                Adjustement speed of wages with respect to labour market tensions, corresponds to $\omega$.
+                Must be positive.
+                Defaults to 0.1.
         """
-        Initialize a firms object as instance of economy class. Refer to firms class.
-        :param z: Productivity factors,
-        :param sigma: Depreciation of stocks parameters,
-        :param alpha: Log-elasticity of prices' growth rates against surplus,
-        :param alpha_p: Log-elasticity of prices' growth rates against profits,
-        :param beta: Log-elasticity of productions' growth rates against profits,
-        :param beta_p: Log-elasticity of productions' growth rates against surplus,
-        :param omega: Log-elasticity of wages' growth rates against labor-market tensions.
-        :return: Initializes firms class with given parameters.
-        """
-        self.firms_sector = Firms(z, sigma, alpha, alpha_p, beta, beta_p, omega)
+
+        if productivity_factors is not None and (productivity_factors < 0).any():
+            raise ValueError(errors_strings.PRODUCTIVITY_FACTORS)
+
+        if depreciation_stock is not None and (depreciation_stock < 0).any():
+            raise ValueError("Entries of depreciation_stock must be positive.")
+
+        if price_surplus_coupling is not None and price_surplus_coupling < 0:
+            raise ValueError("price_surplus_coupling must be positive.")
+
+        if price_profit_coupling is not None and price_profit_coupling < 0:
+            raise ValueError("price_profit_coupling must be positive.")
+
+        if production_profit_coupling is not None and production_profit_coupling < 0:
+            raise ValueError("production_profit_coupling must be positive.")
+
+        if production_surplus_coupling is not None and production_surplus_coupling < 0:
+            raise ValueError("production_surplus_coupling must be positive.")
+
+        if wage_labour_coupling is not None and wage_labour_coupling < 0:
+            raise ValueError("wage_labour_coupling must be positive.")
+
+        productivity_factors = (
+            productivity_factors if productivity_factors else np.ones(self.firms_number)
+        )
+        depreciation_stock = (
+            depreciation_stock if depreciation_stock else np.ones(self.firms_number)
+        )
+        price_surplus_coupling = (
+            price_surplus_coupling if price_surplus_coupling else 0.25
+        )
+        price_profit_coupling = price_profit_coupling if price_profit_coupling else 0.25
+        production_profit_coupling = (
+            production_profit_coupling if production_profit_coupling else 0.25
+        )
+        production_surplus_coupling = (
+            production_surplus_coupling if production_surplus_coupling else 0.25
+        )
+        wage_labour_coupling = wage_labour_coupling if wage_labour_coupling else 0.1
+
+        self.firms_sector = Firms(
+            productivity_factors,
+            depreciation_stock,
+            price_surplus_coupling,
+            price_profit_coupling,
+            production_profit_coupling,
+            production_surplus_coupling,
+            wage_labour_coupling,
+        )
 
     # Setters for class instances
 
-    def set_house(self, house):
-        """
-        Sets a household object as instance of economy class.
-        :param house:
-        :return:
-        """
-        self.household_sector = house
+    def set_house(self, household: Household = None) -> None:
+        """Sets an instanciated Household object as the household_sector instance
+        of the Economy object.
 
-    def set_firms(self, firms):
+        Args:
+            house (Household): an instanciated Household object. Defaults to None.
         """
-        Sets a firms object as instance of economy class.
-        :param firms:
-        :return:
+
+        if household is not None:
+            self.household_sector = household
+        else:
+            print(
+                "Provided Household object was None. Instanciated with default instead."
+            )
+            self.init_house()
+
+    def set_firms(self, firms: Firms = None) -> None:
+        """Sets an instanciated Firms object as the household_sector instance of the Economy object.
+
+        Args:
+            firms (Firms): an instanciated Firms object. Defaults to None.
         """
-        self.firms_sector = firms
+        if firms is not None:
+            self.firms_sector = firms
+        else:
+            print("Provided Firms object was None. Instanciated with default instead.")
+            self.init_firms()
 
     # Update methods for firms and household
 
-    def update_firms_z(self, z):
-        self.firms_sector.update_z(z)
+    def update_firms_productivity_factors(
+        self, productivity_factors: np.array = None
+    ) -> None:
+        """Updates productivity factors of firms_sector instance.
+
+        Args:
+            productivity_factors (np.array): a vector of productivity factors with positive entries.
+            Defaults to np.ones(self.firms_number).
+        """
+
+        if productivity_factors is not None:
+            if (productivity_factors < 0).any():
+                raise ValueError("Entries of productivity_factors must be positive.")
+            self.firms_sector.update_z(productivity_factors)
+        else:
+            print(
+                "Provided productivity_factors object was None. Instanciated with default instead."
+            )
+            self.firms_sector.update_z(np.ones(self.firms_number))
         self.set_quantities()
         self.compute_eq()
 
