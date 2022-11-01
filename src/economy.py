@@ -36,25 +36,27 @@ from household import Household
 from network import create_net
 
 warnings.simplefilter("ignore")
+coded_network_type = ["regular", "m-regular", "er"]
 
-
-coded_network_type = ['regular', 'm-regular', 'er']
+# pylint: disable=too-many-arguments
 
 
 class Economy:
-    """
-    """
-
-    def __init__(self,
-                 firms_number: int = None,
-                 average_connectivity: int = None,
-                 network_type: str = None,
-                 directed: bool = None, 
-                 j0: np.array = None, a0: np.array = None, q: float = None, b: float = None) -> None:
+    def __init__(
+        self,
+        firms_number: int = None,
+        average_connectivity: int = None,
+        network_type: str = None,
+        is_directed: bool = None,
+        work_vector: np.array = None,
+        work_substitution_vector: np.array = None,
+        ces_parameter: float = None,
+        returns_to_scale: float = None,
+    ) -> None:
         """_summary_
 
         Args:
-            n (int > 0): Number of firms in the network. 
+            n (int > 0): Number of firms in the network.
             d (int > 0): Average number of in and out links in the network.
             netstring (str): _description_
             directed (bool): _description_
@@ -75,65 +77,95 @@ class Economy:
 
         if not network_type in coded_network_type:
             raise ValueError(
-                "netstring not supported. Please choose 'regular' for regular, 'm-regular' for multi-regular, 'er' for Erdös-Renyi.")
+                "netstring not supported. Please choose 'regular' for regular, 'm-regular'"
+                + " for multi-regular, 'er' for Erdös-Renyi."
+            )
 
-        if j0.any() < 0:
+        if work_vector.any() < 0:
             raise ValueError("Entries of j0 must be greater or equal to 0.")
 
-        if a0.any() < 0 or a0.any() > 1:
+        if work_substitution_vector.any() < 0 or work_substitution_vector.any() > 1:
             raise ValueError("Entries of a0 must be between 0 and 1.")
 
-        if not q >= 0:
+        if not ces_parameter >= 0:
             raise ValueError("q must be a positive real number.")
 
-        if not b >= 0:
+        if not returns_to_scale >= 0:
             raise ValueError("b must be a positive real number.")
 
         # Network initialization
         self.firms_number = firms_number if firms_number else 100
         average_connectivity = average_connectivity if average_connectivity else 15
-        network_type = network_type if network_type else 'm_regular'
-        directed = directed if directed else True
+        network_type = network_type if network_type else "m_regular"
+        is_directed = is_directed if is_directed else True
 
-        self.j = create_net(network_type, directed, firms_number, average_connectivity)  # Network creation
-        self.j0 = j0 if j0 else np.ones(self.firms_number)
-        self.a0 = a0 if a0 else 0.5 * np.ones(self.firms_number)
+        self.adjacency_network = create_net(
+            network_type, is_directed, firms_number, average_connectivity
+        )  # Network creation
+        self.work_vector = work_vector if work_vector else np.ones(self.firms_number)
+        self.work_substitution_vector = (
+            work_substitution_vector
+            if work_substitution_vector
+            else 0.5 * np.ones(self.firms_number)
+        )
 
-        a = np.multiply(np.random.uniform(0, 1, (self.firms_number, self.firms_number)), self.j)
+        substitution_matrix_without_work = np.multiply(
+            np.random.uniform(0, 1, (self.firms_number, self.firms_number)),
+            self.adjacency_network,
+        )
 
-        self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i])
-                          for i in range(firms_number)])
+        self.substitution_matrix = np.array(
+            [
+                (1 - work_substitution_vector[i])
+                * substitution_matrix_without_work[i]
+                / np.sum(substitution_matrix_without_work[i])
+                for i in range(firms_number)
+            ]
+        )
 
-        self.q = q if q else 0
-        self.zeta = 1 / (q + 1)
-        self.b = b if b else 1
+        self.augmented_substitution_matrix = np.hstack(
+            (np.array([self.work_substitution_vector]).T, self.substitution_matrix)
+        )
+        self.augmented_adjacency_matrix = np.hstack(
+            (np.array([self.work_vector]).T, self.adjacency_network)
+        )
+
+        self.ces_parameter = ces_parameter if ces_parameter else 0
+        self.auxiliary_ces_parameter = 1 / (self.ces_parameter + 1)
+        self.returns_to_scale = returns_to_scale if returns_to_scale else 1
 
         # Auxiliary network variables
-        self.lamb = None
-        self.a_a = None
-        self.j_a = None
-        self.lamb_a = None
-        self.m_cal = None
-        self.v = None
-        self.kappa = None
-        self.zeros_j_a = None
+        self.aggregate_matrix = None
+
+        self.augmented_aggregate_matrix = None
+        self.network_matrix = None
+        self.household_consumption_theory = None
+        self.zeros_augmented_network = None
 
         # Firms and household sub-classes
-        self.firms = None
-        self.house = None
+        self.firms_sector = None
+        self.household_sector = None
 
         # Equilibrium quantities
-        self.p_eq = None
-        self.g_eq = None
-        self.mu_eq = None
-        self.labour_eq = None
-        self.cons_eq = None
-        self.b_eq = None
-        self.utility_eq = None
+        self.equilibrium_prices = None
+        self.equilibrium_production_levels = None
+        self.equilibrium_budget_checker = None
+        self.equilibrium_labour = None
+        self.equilibrium_consumptions = None
+        self.equilibrium_budget = None
+        self.equilibrium_utility = None
 
-    def init_house(self, l_0, theta, gamma, phi, omega_p=None, f=None, r=None):
-        """
-        Initialize a household object as instance of economy class. Refer to household class.
+    def init_house(
+        self,
+        labour_baseline: float = None,
+        preferency_factors: np.array = None,
+        work_desutility_paramater: float = None,
+        convexity_to_work_parameter: float = None,
+        omega_prime: float = None,
+        fraction_to_consume: float = None,
+        interest_rate: float = None,
+    ) -> None:
+        r"""Initialize a household object as instance of economy class. Refer to household class.
         :param l_0: baseline work offer,
         :param theta: preferency factors,
         :param gamma: aversion to work parameter,
@@ -142,8 +174,28 @@ class Economy:
         :param f: fraction of budget to save,
         :param r: savings growth rate.
         :return: Initializes household class with given parameters.
+
+        Args:
+            labour_baseline (float, optional):
+                Baseline work offer, corresponds to $L_0$. Default to 1.
+            preferency_factors (np.array, optional):
+                Vector of preferency factors, corresponds to $\theta$.
+                Default to np.ones(firms_number)/firms_number
+            work_desutility_paramater (float, optional): aversion to work parameter. Defaults to None.
+            convexity_to_work_parameter (float, optional): _description_. Defaults to None.
+            omega_prime (float, optional): _description_. Defaults to None.
+            fraction_to_consume (float, optional): _description_. Defaults to None.
+            interest_rate (float, optional): _description_. Defaults to None.
         """
-        self.house = Household(l_0, theta, gamma, phi, omega_p, f, r)
+        self.household_sector = Household(
+            labour_baseline,
+            preferency_factors,
+            work_desutility_paramater,
+            convexity_to_work_parameter,
+            omega_prime,
+            fraction_to_consume,
+            interest_rate,
+        )
 
     def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
         """
@@ -157,7 +209,7 @@ class Economy:
         :param omega: Log-elasticity of wages' growth rates against labor-market tensions.
         :return: Initializes firms class with given parameters.
         """
-        self.firms = Firms(z, sigma, alpha, alpha_p, beta, beta_p, omega)
+        self.firms_sector = Firms(z, sigma, alpha, alpha_p, beta, beta_p, omega)
 
     # Setters for class instances
 
@@ -167,7 +219,7 @@ class Economy:
         :param house:
         :return:
         """
-        self.house = house
+        self.household_sector = house
 
     def set_firms(self, firms):
         """
@@ -175,57 +227,57 @@ class Economy:
         :param firms:
         :return:
         """
-        self.firms = firms
+        self.firms_sector = firms
 
     # Update methods for firms and household
 
     def update_firms_z(self, z):
-        self.firms.update_z(z)
+        self.firms_sector.update_z(z)
         self.set_quantities()
         self.compute_eq()
 
     def update_firms_sigma(self, sigma):
-        self.firms.update_sigma(sigma)
+        self.firms_sector.update_sigma(sigma)
 
     def update_firms_alpha(self, alpha):
-        self.firms.update_alpha(alpha)
+        self.firms_sector.update_alpha(alpha)
 
     def update_firms_alpha_p(self, alpha_p):
-        self.firms.update_alpha_p(alpha_p)
+        self.firms_sector.update_alpha_p(alpha_p)
 
     def update_firms_beta(self, beta):
-        self.firms.update_beta(beta)
+        self.firms_sector.update_beta(beta)
 
     def update_firms_beta_p(self, beta_p):
-        self.firms.update_beta_p(beta_p)
+        self.firms_sector.update_beta_p(beta_p)
 
     def update_firms_w(self, omega):
-        self.firms.update_w(omega)
+        self.firms_sector.update_w(omega)
 
     def update_house_labour(self, labour):
-        self.house.update_labour(labour)
+        self.household_sector.update_labour(labour)
         self.compute_eq()
 
     def update_house_theta(self, theta):
-        self.house.update_theta(theta)
+        self.household_sector.update_theta(theta)
         self.compute_eq()
 
     def update_house_gamma(self, gamma):
-        self.house.update_gamma(gamma)
+        self.household_sector.update_gamma(gamma)
         self.compute_eq()
 
     def update_house_phi(self, phi):
-        self.house.update_phi(phi)
+        self.household_sector.update_phi(phi)
         self.compute_eq()
 
     def update_house_w_p(self, omega_p):
-        self.house.update_w_p(omega_p)
+        self.household_sector.update_w_p(omega_p)
 
     def update_house_f(self, f):
-        self.house.update_f(f)
+        self.household_sector.update_f(f)
 
     def update_house_r(self, r):
-        self.house.update_r(r)
+        self.household_sector.update_r(r)
 
     # Setters for the networks and subsequent instances
 
@@ -237,9 +289,11 @@ class Economy:
         """
         if j.shape != (self.firms_number, self.firms_number):
             raise ValueError(
-                'Input-output network must be of size (%d, %d)' % (self.firms_number, self.firms_number))
+                "Input-output network must be of size (%d, %d)"
+                % (self.firms_number, self.firms_number)
+            )
 
-        self.j = j
+        self.adjacency_network = j
         self.set_quantities()
         self.compute_eq()
 
@@ -251,8 +305,10 @@ class Economy:
         """
         if a.shape != (self.firms_number, self.firms_number):
             raise ValueError(
-                'Substitution network must be of size (%d, %d)' % (self.firms_number, self.firms_number))
-        self.a = a
+                "Substitution network must be of size (%d, %d)"
+                % (self.firms_number, self.firms_number)
+            )
+        self.substitution_matrix = a
         self.set_quantities()
         self.compute_eq()
 
@@ -261,43 +317,41 @@ class Economy:
         Sets redundant economy quantities as class instances.
         :return: side effect
         """
-        if self.q == 0:
-            self.lamb = self.j
-            self.a_a = np.hstack((np.array([self.a0]).T, self.a))
-            self.j_a = np.hstack((np.array([self.j0]).T, self.j))
-            self.lamb_a = self.j_a
-            self.m_cal = np.diag(self.firms.z) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
-        elif self.q == np.inf:
-            self.lamb = self.a
-            self.a_a = np.hstack((np.array([self.a0]).T, self.a))
-            self.j_a = np.hstack((np.array([self.j0]).T, self.j))
-            self.lamb_a = self.a_a
-            self.m_cal = np.eye(self.firms_number) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
+        if self.ces_parameter == 0:
+            self.aggregate_matrix = self.adjacency_network
+            self.augmented_aggregate_matrix = self.augmented_adjacency_matrix
+            self.network_matrix = np.diag(self.firms_sector.z) - self.aggregate_matrix
+        elif self.ces_parameter == np.inf:
+            self.aggregate_matrix = self.substitution_matrix
+            self.augmented_aggregate_matrix = self.augmented_substitution_matrix
+            self.network_matrix = np.eye(self.firms_number) - self.aggregate_matrix
         else:
-            self.lamb = np.multiply(np.power(self.a, self.q * self.zeta),
-                                    np.power(self.j, self.zeta))
-            self.a_a = np.hstack((np.array([self.a0]).T, self.a))
-            self.j_a = np.hstack((np.array([self.j0]).T, self.j))
-            self.lamb_a = np.multiply(np.power(self.a_a, self.q * self.zeta),
-                                      np.power(self.j_a, self.zeta))
-            self.m_cal = np.diag(np.power(self.firms.z, self.zeta)) - self.lamb
-            self.v = np.array(self.lamb_a[:, 0])
-        self.mu_eq = np.power(np.power(self.house.gamma, 1./self.house.phi) * np.sum(self.house.theta) *
-                              (1 - (1 - self.house.f) * (1 + self.house.r)) /
-                              (self.house.f * np.power(self.house.l_0,
-                               1 + 1./self.house.phi)),
-                              self.house.phi / (1 + self.house.phi))
-        self.kappa = self.house.theta / self.mu_eq
-        self.zeros_j_a = self.j_a != 0
+            self.aggregate_matrix = np.multiply(
+                np.power(
+                    self.substitution_matrix,
+                    self.ces_parameter * self.auxiliary_ces_parameter,
+                ),
+                np.power(self.adjacency_network, self.auxiliary_ces_parameter),
+            )
+            self.augmented_aggregate_matrix = np.multiply(
+                np.power(
+                    self.augmented_substitution_matrix,
+                    self.ces_parameter * self.auxiliary_ces_parameter,
+                ),
+                np.power(self.augmented_adjacency_matrix, self.auxiliary_ces_parameter),
+            )
+            self.network_matrix = (
+                np.diag(np.power(self.firms_sector.z, self.auxiliary_ces_parameter))
+                - self.aggregate_matrix
+            )
+        self.zeros_augmented_network = self.augmented_adjacency_matrix != 0
 
     def get_eps_cal(self):
         """
         Computes the smallest eigenvalue of the economy matrix
         :return: smallest eigenvalue
         """
-        return np.min(np.real(np.linalg.eigvals(self.m_cal)))
+        return np.min(np.real(np.linalg.eigvals(self.network_matrix)))
 
     def set_eps_cal(self, eps):
         """
@@ -306,15 +360,18 @@ class Economy:
         :return: side effect.
         """
         min_eig = self.get_eps_cal()
-        z_n = self.firms.z * \
-            np.power(1 + (eps - min_eig) /
-                     np.power(self.firms.z, self.zeta), self.q + 1)
-        sigma = self.firms.sigma
-        alpha = self.firms.alpha
-        alpha_p = self.firms.alpha_p
-        beta = self.firms.beta
-        beta_p = self.firms.beta_p
-        omega = self.firms.omega
+        z_n = self.firms_sector.z * np.power(
+            1
+            + (eps - min_eig)
+            / np.power(self.firms_sector.z, self.auxiliary_ces_parameter),
+            self.ces_parameter + 1,
+        )
+        sigma = self.firms_sector.sigma
+        alpha = self.firms_sector.alpha
+        alpha_p = self.firms_sector.alpha_p
+        beta = self.firms_sector.beta
+        beta_p = self.firms_sector.beta_p
+        omega = self.firms_sector.omega
         self.init_firms(z_n, sigma, alpha, alpha_p, beta, beta_p, omega)
         self.set_quantities()
         self.compute_eq()
@@ -325,33 +382,44 @@ class Economy:
         :param b: return to scale
         :return: side effect
         """
-        self.b = b
+        self.returns_to_scale = b
         self.compute_eq()
 
     def update_q(self, q):
-        self.q = q
-        self.zeta = 1 / (q + 1)
+        self.ces_parameter = q
+        self.auxiliary_ces_parameter = 1 / (q + 1)
         self.set_quantities()
         self.compute_eq()
 
     def update_network(self, netstring, directed, d, n):
-        self.j = create_net(netstring, directed, n, d)
-        a = np.multiply(np.random.uniform(0, 1, (n, n)), self.j)
-        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i])
-                          for i in range(n)])
+        self.adjacency_network = create_net(netstring, directed, n, d)
+        a = np.multiply(np.random.uniform(0, 1, (n, n)), self.adjacency_network)
+        self.substitution_matrix = np.array(
+            [
+                (1 - self.work_substitution_vector[i]) * a[i] / np.sum(a[i])
+                for i in range(n)
+            ]
+        )
         self.set_quantities()
         self.compute_eq()
 
     def update_a0(self, a0):
-        self.a0 = a0
-        a = np.multiply(np.random.uniform(0, 1, (self.firms_number, self.firms_number)), self.j)
-        self.a = np.array([(1 - self.a0[i]) * a[i] / np.sum(a[i])
-                          for i in range(self.firms_number)])
+        self.work_substitution_vector = a0
+        a = np.multiply(
+            np.random.uniform(0, 1, (self.firms_number, self.firms_number)),
+            self.adjacency_network,
+        )
+        self.substitution_matrix = np.array(
+            [
+                (1 - self.work_substitution_vector[i]) * a[i] / np.sum(a[i])
+                for i in range(self.firms_number)
+            ]
+        )
         self.set_quantities()
         self.compute_eq()
 
     def update_j0(self, j0):
-        self.j0 = j0
+        self.work_vector = j0
         self.set_quantities()
         self.compute_eq()
 
@@ -361,22 +429,40 @@ class Economy:
         :param q_available: matrix of available labour and goods for production,
         :return: production levels of the firms.
         """
-        if self.q == 0:
-            prod = np.power(np.nanmin(np.divide(q_available, self.j_a),
-                                      axis=1), self.b)
+        if self.ces_parameter == 0:
+            prod = np.power(
+                np.nanmin(
+                    np.divide(q_available, self.augmented_adjacency_matrix), axis=1
+                ),
+                self.returns_to_scale,
+            )
             # print(prod)
             return prod
-        elif self.q == np.inf:
-            return np.power(np.nanprod(np.power(np.divide(q_available, self.j_a),
-                                                self.a_a),
-                                       axis=1),
-                            self.b)
+        elif self.ces_parameter == np.inf:
+            return np.power(
+                np.nanprod(
+                    np.power(
+                        np.divide(q_available, self.augmented_adjacency_matrix),
+                        self.augmented_substitution_matrix,
+                    ),
+                    axis=1,
+                ),
+                self.returns_to_scale,
+            )
         else:
-            return np.power(np.nansum(self.a_a * np.power(self.j_a, 1. / self.q)
-                                      / np.power(q_available, 1. / self.q), axis=1),
-                            - self.b * self.q)
+            return np.power(
+                np.nansum(
+                    self.augmented_substitution_matrix
+                    * np.power(
+                        self.augmented_adjacency_matrix, 1.0 / self.ces_parameter
+                    )
+                    / np.power(q_available, 1.0 / self.ces_parameter),
+                    axis=1,
+                ),
+                -self.returns_to_scale * self.ces_parameter,
+            )
 
-    def compute_eq(self):
+    def compute_eq(self) -> None:
         """
         Computes the competitive equilibrium of the economy. We use least-squares to compute solutions of linear
         systems Ax=b for memory and computational efficiency. The non-linear equations for non-constant return to scale
@@ -385,152 +471,290 @@ class Economy:
         can output erroneous results or errors.
         :return: side effect.
         """
-        if self.q == np.inf:
-            h = np.sum(
-                self.a_a * np.log(np.ma.masked_invalid(np.divide(self.j_a, self.a_a))), axis=1)
-            v = lstsq(np.eye(self.firms_number) - self.a.T,
-                      self.kappa,
-                      rcond=10e-7)[0]
-            log_p = lstsq(np.eye(self.firms_number) / self.b - self.a,
-                          - np.log(self.firms.z) / self.b +
-                          (1 - self.b) * np.log(v) / self.b + h,
-                          rcond=10e-7)[0]
-            log_g = - np.log(self.firms.z) - log_p + np.log(v)
-            self.p_eq, self.g_eq = np.exp(log_p), np.exp(log_g)
-        else:
-            if self.b != 1:
-                if self.q == 0:
-                    init_guess_peq = lstsq(self.m_cal,
-                                           self.v,
-                                           rcond=10e-7)[0]
-                    init_guess_geq = lstsq(self.m_cal.T,
-                                           np.divide(
-                                               self.kappa, init_guess_peq),
-                                           rcond=10e-7)[0]
 
-                    par = (self.firms.z,
-                           self.v,
-                           self.m_cal,
-                           self.b - 1,
-                           self.kappa)
+        self.equilibrium_budget_checker = np.power(
+            np.power(self.household_sector.gamma, 1.0 / self.household_sector.phi)
+            * np.sum(self.household_sector.theta)
+            * (1 - (1 - self.household_sector.f) * (1 + self.household_sector.r))
+            / (
+                self.household_sector.f
+                * np.power(
+                    self.household_sector.l_0, 1 + 1.0 / self.household_sector.phi
+                )
+            ),
+            self.household_sector.phi / (1 + self.household_sector.phi),
+        )
+        self.household_consumption_theory = (
+            self.household_sector.theta / self.equilibrium_budget_checker
+        )
+
+        if self.ces_parameter == np.inf:
+            h = np.sum(
+                self.augmented_substitution_matrix
+                * np.log(
+                    np.ma.masked_invalid(
+                        np.divide(
+                            self.augmented_adjacency_matrix,
+                            self.augmented_substitution_matrix,
+                        )
+                    )
+                ),
+                axis=1,
+            )
+            v = lstsq(
+                np.eye(self.firms_number) - self.substitution_matrix.T,
+                self.household_consumption_theory,
+                rcond=10e-7,
+            )[0]
+            log_p = lstsq(
+                np.eye(self.firms_number) / self.returns_to_scale
+                - self.substitution_matrix,
+                -np.log(self.firms_sector.z) / self.returns_to_scale
+                + (1 - self.returns_to_scale) * np.log(v) / self.returns_to_scale
+                + h,
+                rcond=10e-7,
+            )[0]
+            log_g = -np.log(self.firms_sector.z) - log_p + np.log(v)
+            self.equilibrium_prices, self.equilibrium_production_levels = np.exp(
+                log_p
+            ), np.exp(log_g)
+        else:
+            if self.returns_to_scale != 1:
+                if self.ces_parameter == 0:
+                    init_guess_peq = lstsq(
+                        self.network_matrix,
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        rcond=10e-7,
+                    )[0]
+                    init_guess_geq = lstsq(
+                        self.network_matrix.T,
+                        np.divide(self.household_consumption_theory, init_guess_peq),
+                        rcond=10e-7,
+                    )[0]
+
+                    par = (
+                        self.firms_sector.z,
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        self.network_matrix,
+                        self.returns_to_scale - 1,
+                        self.household_consumption_theory,
+                    )
 
                     pert_peq = lstsq(
-                        self.m_cal, self.firms.z * init_guess_peq * np.log(init_guess_geq), rcond=10e-7)[0]
+                        self.network_matrix,
+                        self.firms_sector.z * init_guess_peq * np.log(init_guess_geq),
+                        rcond=10e-7,
+                    )[0]
 
-                    pert_geq = lstsq(np.transpose(self.m_cal),
-                                     - np.divide(self.kappa,
-                                                 np.power(init_guess_peq, 2)) * pert_peq +
-                                     self.firms.z * init_guess_geq *
-                                     np.log(init_guess_geq),
-                                     rcond=10e-7)[0]
+                    pert_geq = lstsq(
+                        np.transpose(self.network_matrix),
+                        -np.divide(
+                            self.household_consumption_theory,
+                            np.power(init_guess_peq, 2),
+                        )
+                        * pert_peq
+                        + self.firms_sector.z * init_guess_geq * np.log(init_guess_geq),
+                        rcond=10e-7,
+                    )[0]
 
-                    pg = leastsq(lambda x: self.non_linear_eq_qzero(x, *par),
-                                 np.array(np.concatenate((init_guess_peq + (1 - self.b) * pert_peq,
-                                                          np.power(init_guess_geq + (1 - self.b) * (
-                                                              pert_geq - init_guess_geq * np.log(init_guess_geq)),
-                                     1 / self.b))).reshape(2 * self.firms_number)))[0]
+                    pg = leastsq(
+                        lambda x: self.non_linear_eq_qzero(x, *par),
+                        np.array(
+                            np.concatenate(
+                                (
+                                    init_guess_peq
+                                    + (1 - self.returns_to_scale) * pert_peq,
+                                    np.power(
+                                        init_guess_geq
+                                        + (1 - self.returns_to_scale)
+                                        * (
+                                            pert_geq
+                                            - init_guess_geq * np.log(init_guess_geq)
+                                        ),
+                                        1 / self.returns_to_scale,
+                                    ),
+                                )
+                            ).reshape(2 * self.firms_number)
+                        ),
+                    )[0]
 
                     # pylint: disable=unbalanced-tuple-unpacking
-                    self.p_eq, g = np.split(pg, 2)
-                    self.g_eq = np.power(g, self.b)
+                    self.equilibrium_prices, g = np.split(pg, 2)
+                    self.equilibrium_production_levels = np.power(
+                        g, self.returns_to_scale
+                    )
 
                 else:
 
                     # The numerical solving is done for variables u = p_eq ^ zeta and
                     # w = z ^ (q * zeta) * u ^ q * g_eq ^ (zeta * (bq+1) / b)
 
-                    init_guess_u = lstsq(self.m_cal,
-                                         self.v,
-                                         rcond=None)[0]
-                    init_guess_w = lstsq(self.m_cal.T,
-                                         np.divide(self.kappa, init_guess_u),
-                                         rcond=None)[0]
+                    init_guess_u = lstsq(
+                        self.network_matrix,
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        rcond=None,
+                    )[0]
+                    init_guess_w = lstsq(
+                        self.network_matrix.T,
+                        np.divide(self.household_consumption_theory, init_guess_u),
+                        rcond=None,
+                    )[0]
 
-                    par = (np.power(self.firms.z, self.zeta),
-                           self.v,
-                           self.m_cal,
-                           self.q,
-                           (self.b - 1) / (self.b * self.q + 1),
-                           self.kappa
-                           )
+                    par = (
+                        np.power(self.firms_sector.z, self.auxiliary_ces_parameter),
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        self.network_matrix,
+                        self.ces_parameter,
+                        (self.returns_to_scale - 1)
+                        / (self.returns_to_scale * self.ces_parameter + 1),
+                        self.household_consumption_theory,
+                    )
 
-                    uw = leastsq(lambda x: self.non_linear_eq_qnonzero(x, *par),
-                                 np.concatenate((init_guess_u, init_guess_w)),
-                                 )[0]
+                    uw = leastsq(
+                        lambda x: self.non_linear_eq_qnonzero(x, *par),
+                        np.concatenate((init_guess_u, init_guess_w)),
+                    )[0]
 
                     # pylint: disable=unbalanced-tuple-unpacking
                     u, w = np.split(uw, 2)
-                    self.p_eq = np.power(u, 1. / self.zeta)
-                    self.g_eq = np.power(np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(u, self.q)),
-                                         self.b / (self.zeta * (self.b * self.q + 1)))
+                    self.equilibrium_prices = np.power(
+                        u, 1.0 / self.auxiliary_ces_parameter
+                    )
+                    self.equilibrium_production_levels = np.power(
+                        np.divide(
+                            w,
+                            np.power(
+                                self.firms_sector.z,
+                                self.ces_parameter * self.auxiliary_ces_parameter,
+                            )
+                            * np.power(u, self.ces_parameter),
+                        ),
+                        self.returns_to_scale
+                        / (
+                            self.auxiliary_ces_parameter
+                            * (self.returns_to_scale * self.ces_parameter + 1)
+                        ),
+                    )
             else:
-                if self.q == 0:
-                    self.p_eq = lstsq(self.m_cal,
-                                      self.v,
-                                      rcond=10e-7)[0]
-                    self.g_eq = lstsq(self.m_cal.T,
-                                      np.divide(self.kappa, self.p_eq),
-                                      rcond=10e-7)[0]
+                if self.ces_parameter == 0:
+                    self.equilibrium_prices = lstsq(
+                        self.network_matrix,
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        rcond=10e-7,
+                    )[0]
+                    self.equilibrium_production_levels = lstsq(
+                        self.network_matrix.T,
+                        np.divide(
+                            self.household_consumption_theory, self.equilibrium_prices
+                        ),
+                        rcond=10e-7,
+                    )[0]
                 else:
 
                     # The numerical solving is done for variables u = p_eq ^ zeta and
                     # w = z ^ (q * zeta) * u ^ q * g_eq
 
-                    u = lstsq(self.m_cal,
-                              self.v,
-                              rcond=None)[0]
-                    self.p_eq = np.power(u, 1. / self.zeta)
-                    w = lstsq(self.m_cal.T,
-                              np.divide(self.kappa, u),
-                              rcond=None)[0]
-                    self.g_eq = np.divide(w, np.power(
-                        self.firms.z, self.q * self.zeta) * np.power(u, self.q))
+                    u = lstsq(
+                        self.network_matrix,
+                        np.array(self.augmented_aggregate_matrix[:, 0]),
+                        rcond=None,
+                    )[0]
+                    self.equilibrium_prices = np.power(
+                        u, 1.0 / self.auxiliary_ces_parameter
+                    )
+                    w = lstsq(
+                        self.network_matrix.T,
+                        np.divide(self.household_consumption_theory, u),
+                        rcond=None,
+                    )[0]
+                    self.equilibrium_production_levels = np.divide(
+                        w,
+                        np.power(
+                            self.firms_sector.z,
+                            self.ces_parameter * self.auxiliary_ces_parameter,
+                        )
+                        * np.power(u, self.ces_parameter),
+                    )
 
-        self.labour_eq = np.power(
-            self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
-        self.cons_eq = self.kappa / self.p_eq
-        self.b_eq = np.sum(self.house.theta) / self.mu_eq
-        self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(
-            self.labour_eq / self.house.l_0,
-            self.house.phi + 1) / (
-                self.house.phi + 1)
+        self.equilibrium_labour = (
+            np.power(
+                self.equilibrium_budget_checker * self.household_sector.f,
+                1.0 / self.household_sector.phi,
+            )
+            / self.household_sector.v_phi
+        )
+        self.equilibrium_consumptions = (
+            self.household_consumption_theory / self.equilibrium_prices
+        )
+        self.equilibrium_budget = (
+            np.sum(self.household_sector.theta) / self.equilibrium_budget_checker
+        )
+        self.equilibrium_utility = np.dot(
+            self.household_sector.theta, np.log(self.equilibrium_consumptions)
+        ) - self.household_sector.gamma * np.power(
+            self.equilibrium_labour / self.household_sector.l_0,
+            self.household_sector.phi + 1,
+        ) / (
+            self.household_sector.phi + 1
+        )
 
-    def save_eco(self, name):
+    def save_eco(self, path_to_save) -> None:
         """
-        Saves the economy as multi-indexed data-frame in hdf format along with networks in npy format.
+        Saves the economy as multi-indexed data-frame in hdf format along with networks in
+        npy format.
         :param name: name of file,
         """
         first_index = np.concatenate(
-            (np.repeat('Firms', 11), np.repeat('Household', 11)))
+            (np.repeat("Firms", 11), np.repeat("Household", 11))
+        )
         second_index = np.concatenate(
-            (['q', 'b', 'z', 'sigma', 'alpha', 'alpha_p', 'beta', 'beta_p', 'w', 'p_eq', 'g_eq'],
-             ['l', 'theta', 'gamma', 'phi']))
+            (
+                [
+                    "q",
+                    "b",
+                    "z",
+                    "sigma",
+                    "alpha",
+                    "alpha_p",
+                    "beta",
+                    "beta_p",
+                    "w",
+                    "p_eq",
+                    "g_eq",
+                ],
+                ["l", "theta", "gamma", "phi"],
+            )
+        )
         multi_index = [first_index, second_index]
-        values = np.vstack((self.q * np.ones(self.firms_number),
-                            self.b * np.ones(self.firms_number),
-                            self.firms.z,
-                            self.firms.sigma,
-                            self.firms.alpha * np.ones(self.firms_number),
-                            self.firms.alpha_p * np.ones(self.firms_number),
-                            self.firms.beta * np.ones(self.firms_number),
-                            self.firms.beta_p * np.ones(self.firms_number),
-                            self.firms.w * np.ones(self.firms_number),
-                            self.p_eq,
-                            self.g_eq,
-                            self.house.l_0 * np.ones(self.firms_number),
-                            self.house.theta,
-                            self.house.gamma * np.ones(self.firms_number),
-                            self.house.phi * np.ones(self.firms_number),
-                            ))
+        values = np.vstack(
+            (
+                self.ces_parameter * np.ones(self.firms_number),
+                self.returns_to_scale * np.ones(self.firms_number),
+                self.firms_sector.z,
+                self.firms_sector.sigma,
+                self.firms_sector.alpha * np.ones(self.firms_number),
+                self.firms_sector.alpha_p * np.ones(self.firms_number),
+                self.firms_sector.beta * np.ones(self.firms_number),
+                self.firms_sector.beta_p * np.ones(self.firms_number),
+                self.firms_sector.w * np.ones(self.firms_number),
+                self.equilibrium_prices,
+                self.equilibrium_production_levels,
+                self.household_sector.l_0 * np.ones(self.firms_number),
+                self.household_sector.theta,
+                self.household_sector.gamma * np.ones(self.firms_number),
+                self.household_sector.phi * np.ones(self.firms_number),
+            )
+        )
 
-        df_eco = pd.DataFrame(values,
-                              index=multi_index,
-                              columns=[np.arange(1, self.firms_number + 1)]
-                              )
-        df_eco.to_hdf(name + '/eco.h5', key='df', mode='w')
-        np.save(name + '/network.npy', self.j_a)
-        if self.q != 0:
-            np.save(name + '/sub_network.npy', self.a_a)
+        df_eco = pd.DataFrame(
+            values, index=multi_index, columns=[np.arange(1, self.firms_number + 1)]
+        )
+        df_eco.to_hdf(path_to_save + "/eco.h5", key="df", mode="w")
+        np.save(path_to_save + "/network.npy", self.augmented_adjacency_matrix)
+        if self.ces_parameter != 0:
+            np.save(
+                path_to_save + "/sub_network.npy", self.augmented_substitution_matrix
+            )
 
     # Fixed point equations for equilibrium computation
 
@@ -550,7 +774,8 @@ class Economy:
         u, w = np.split(x, 2)
         z_zeta, v, m_cal, q, exponent, kappa = p
         w_over_uq_p = np.power(
-            np.divide(w, np.power(z_zeta, q) * np.power(u, q)), exponent)
+            np.divide(w, np.power(z_zeta, q) * np.power(u, q)), exponent
+        )
         v1 = np.multiply(z_zeta, np.multiply(u, 1 - w_over_uq_p))
         m1 = np.dot(m_cal, u)
         m2 = u * np.dot(m_cal.T, w) - w * m1
@@ -567,7 +792,7 @@ class Economy:
         """
 
         if len(x) % 2 != 0:
-            raise ValueError('x must be of even length')
+            raise ValueError("x must be of even length")
 
         # pylint: disable=unbalanced-tuple-unpacking
         p, g = np.split(x, 2)
