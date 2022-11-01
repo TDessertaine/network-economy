@@ -263,7 +263,7 @@ class Economy:
         production_surplus_coupling: float = None,
         wage_labour_coupling: float = None,
     ) -> None:
-        r"""Initializes a Firms object as an instance of the Economy object.
+        """Initializes a Firms object as an instance of the Economy object.
         Refer to initialization of Firms class.
 
         Args:
@@ -276,7 +276,7 @@ class Economy:
                 Must be positive.
                 Defaults to np.ones(self.firms_number).
             price_surplus_coupling (float):
-                Adjustement speed of prices with respect to surplus, corresponds to $\alpha$.
+                Adjustement speed of prices with respect to surplus, corresponds to \u03B1.
                 Must be positive.
                 Defaults to 0.25.
             price_profit_coupling (float):
@@ -301,22 +301,22 @@ class Economy:
             raise ValueError(errors_strings.PRODUCTIVITY_FACTORS)
 
         if depreciation_stock is not None and (depreciation_stock < 0).any():
-            raise ValueError("Entries of depreciation_stock must be positive.")
+            raise ValueError(errors_strings.DEPRECIATION_FACTORS)
 
         if price_surplus_coupling is not None and price_surplus_coupling < 0:
-            raise ValueError("price_surplus_coupling must be positive.")
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
 
         if price_profit_coupling is not None and price_profit_coupling < 0:
-            raise ValueError("price_profit_coupling must be positive.")
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
 
         if production_profit_coupling is not None and production_profit_coupling < 0:
-            raise ValueError("production_profit_coupling must be positive.")
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
 
         if production_surplus_coupling is not None and production_surplus_coupling < 0:
-            raise ValueError("production_surplus_coupling must be positive.")
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
 
         if wage_labour_coupling is not None and wage_labour_coupling < 0:
-            raise ValueError("wage_labour_coupling must be positive.")
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
 
         productivity_factors = (
             productivity_factors if productivity_factors else np.ones(self.firms_number)
