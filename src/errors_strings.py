@@ -1,3 +1,5 @@
+FIRMS_NUMBER = "firms_number must be strictly positive."
+
 # Firms error strings
 
 PRODUCTIVITY_FACTORS = "Entries of productivity_factors must be positive."

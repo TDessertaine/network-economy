@@ -24,49 +24,92 @@ The methods of this class encode the way firms update the varying quantities suc
 """
 
 import numpy as np
+import errors_strings
 
 
 class Firms:
-    def __init__(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
+    def __init__(
+        self,
+        firms_number: int = None,
+        productivity_factors: np.array = None,
+        depreciation_stock: np.array = None,
+        price_surplus_coupling: float = None,
+        price_profit_coupling: float = None,
+        production_profit_coupling: float = None,
+        production_surplus_coupling: float = None,
+        wage_labour_coupling: float = None,
+    ) -> None:
 
-        if (z < 0).any():
-            raise Exception("Productivity factors must be positive.")
-        if (np.array([alpha, alpha_p, beta, beta_p]) < 0).any():
-            raise Exception("Inverse timescales must be positive.")
-        if (sigma < 0).any():
-            raise Exception("Depreciation of stocks must be positive.")
+        if firms_number is not None and firms_number <= 0:
+            raise ValueError(errors_strings.FIRMS_NUMBER)
 
-        # Production function parameters
-        self.z = z  # Productivity factors
-        self.sigma = sigma  # Depreciation of stocks parameters
-        self.alpha = alpha  # Log-elasticity of prices' growth rates against surplus
-        self.alpha_p = alpha_p  # Log-elasticity of prices' growth rates against profits
-        self.beta = beta  # Log-elasticity of productions' growth rates against profits
-        self.beta_p = beta_p  # Log-elasticity of productions' growth rates against surplus
-        self.omega = omega  # Log-elasticity of wages' growth rates against labor-market tensions
+        if productivity_factors is not None and (productivity_factors < 0).any():
+            raise ValueError(errors_strings.PRODUCTIVITY_FACTORS)
+
+        if depreciation_stock is not None and (depreciation_stock < 0).any():
+            raise ValueError(errors_strings.DEPRECIATION_FACTORS)
+
+        if price_surplus_coupling is not None and price_surplus_coupling < 0:
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
+
+        if price_profit_coupling is not None and price_profit_coupling < 0:
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
+
+        if production_profit_coupling is not None and production_profit_coupling < 0:
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
+
+        if production_surplus_coupling is not None and production_surplus_coupling < 0:
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
+
+        if wage_labour_coupling is not None and wage_labour_coupling < 0:
+            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
+
+        self.firms_number = firms_number if firms_number else 100
+        self.productivity_factors = (
+            productivity_factors if productivity_factors else np.ones(self.firms_number)
+        )  # Productivity factors
+        self.depreciation_stock = (
+            depreciation_stock if depreciation_stock else np.ones(self.firms_number)
+        )
+        self.price_surplus_coupling = (
+            price_surplus_coupling if price_surplus_coupling else 0.25
+        )
+        self.price_profit_coupling = (
+            price_profit_coupling if price_profit_coupling else 0.25
+        )
+        self.production_profit_coupling = (
+            production_profit_coupling if production_profit_coupling else 0.25
+        )
+        self.production_surplus_coupling = (
+            production_surplus_coupling if production_surplus_coupling else 0.25
+        )
+        self.wage_labour_coupling = (
+            wage_labour_coupling if wage_labour_coupling else 0.1
+        )
 
     # Setters for class instances
 
-    def update_z(self, z):
-        self.z = z
+    def update_productivity_factors(self, productivity_factors: np.array) -> None:
+        if 
+        self.productivity_factors = productivity_factors
 
     def update_sigma(self, sigma):
-        self.sigma = sigma
+        self.depreciation_stock = sigma
 
     def update_alpha(self, alpha):
-        self.alpha = alpha
+        self.price_surplus_coupling = alpha
 
     def update_alpha_p(self, alpha_p):
-        self.alpha_p = alpha_p
+        self.price_profit_coupling = alpha_p
 
     def update_beta(self, beta):
-        self.beta = beta
+        self.production_profit_coupling = beta
 
     def update_beta_p(self, beta_p):
-        self.beta_p = beta_p
+        self.production_surplus_coupling = beta_p
 
     def update_w(self, omega):
-        self.omega = omega
+        self.wage_labour_coupling = omega
 
     def update_prices(self, prices, profits, balance, cashflow, tradeflow, step_s):
         """
@@ -79,8 +122,14 @@ class Firms:
         :param step_s: size of time step,
         :return: Updated prices for the next period.
         """
-        return prices * np.exp(- 2 * step_s * (self.alpha_p * profits / cashflow +
-                                           self.alpha * balance[1:] / tradeflow[1:]))
+        return prices * np.exp(
+            -2
+            * step_s
+            * (
+                self.price_profit_coupling * profits / cashflow
+                + self.price_surplus_coupling * balance[1:] / tradeflow[1:]
+            )
+        )
 
     def update_wages(self, labour_balance, total_labour, step_s):
         """
@@ -90,7 +139,9 @@ class Firms:
         :param step_s: size of time-step,
         :return: Updated wage for the next period.
         """
-        return np.exp(- 2 * self.omega * step_s * (labour_balance / total_labour))
+        return np.exp(
+            -2 * self.wage_labour_coupling * step_s * (labour_balance / total_labour)
+        )
 
     def compute_targets(self, prices, q_forecast, supply, prods, step_s):
         """
@@ -102,9 +153,17 @@ class Firms:
         :param step_s: size of time-step,
         :return: Production targets for the next period.
         """
-        est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, q_forecast, supply)
-        return prods * np.exp(2 * step_s * (self.beta * est_profits / est_cashflow
-                              - self.beta_p * est_balance[1:] / est_tradeflow[1:]))
+        est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(
+            prices, q_forecast, supply
+        )
+        return prods * np.exp(
+            2
+            * step_s
+            * (
+                self.production_profit_coupling * est_profits / est_cashflow
+                - self.production_surplus_coupling * est_balance[1:] / est_tradeflow[1:]
+            )
+        )
 
     @staticmethod
     def compute_profits_balance(prices, q_exchange, supply, demand):
@@ -131,27 +190,44 @@ class Firms:
         :return: Matrix of optimal goods/labor quantities.
         """
         if e.q == 0:
-            demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / e.b)),
-                                                e.lamb_a)
-            #print(demanded_products_labor)
+            demanded_products_labor = np.matmul(
+                np.diag(np.power(targets, 1.0 / e.b)), e.lamb_a
+            )
+            # print(demanded_products_labor)
         elif e.q == np.inf:
-            prices_net_aux = np.array([
-                np.prod(np.power(e.j_a[i, :] * np.concatenate((np.array([1]), prices)) /
-                                 e.a_a[i, :], e.a_a[i, :])[e.zeros_j_a[i, :]])
-                for i in range(e.n)
-            ])
-            demanded_products_labor = np.multiply(e.a_a,
-                                                  np.outer(np.multiply(prices_net_aux,
-                                                                       np.power(targets, 1. / e.b)),
-                                                           np.concatenate((np.array([1]), 1. / prices))
-                                                           ))
+            prices_net_aux = np.array(
+                [
+                    np.prod(
+                        np.power(
+                            e.j_a[i, :]
+                            * np.concatenate((np.array([1]), prices))
+                            / e.a_a[i, :],
+                            e.a_a[i, :],
+                        )[e.zeros_j_a[i, :]]
+                    )
+                    for i in range(e.n)
+                ]
+            )
+            demanded_products_labor = np.multiply(
+                e.a_a,
+                np.outer(
+                    np.multiply(prices_net_aux, np.power(targets, 1.0 / e.b)),
+                    np.concatenate((np.array([1]), 1.0 / prices)),
+                ),
+            )
         else:
-            prices_net = np.matmul(e.lamb_a, np.power(np.concatenate(([1], prices)), e.zeta))
-            demanded_products_labor = np.multiply(e.lamb_a,
-                                                  np.outer(np.multiply(np.power(prices_net, e.q),
-                                                                       np.power(targets, 1. / e.b)),
-                                                           np.power(np.concatenate((np.array([1]), prices)),
-                                                                    - e.q / (1 + e.q))))
+            prices_net = np.matmul(
+                e.lamb_a, np.power(np.concatenate(([1], prices)), e.zeta)
+            )
+            demanded_products_labor = np.multiply(
+                e.lamb_a,
+                np.outer(
+                    np.multiply(
+                        np.power(prices_net, e.q), np.power(targets, 1.0 / e.b)
+                    ),
+                    np.power(np.concatenate((np.array([1]), prices)), -e.q / (1 + e.q)),
+                ),
+            )
         return demanded_products_labor
 
     @staticmethod
@@ -164,7 +240,14 @@ class Firms:
         :return: Forecast of profits, balance, cash-flow and trade-flow.
         """
         exp_gain = prices * np.sum(q_forecast[:, 1:], axis=0)
-        exp_losses = np.matmul(q_forecast[1:, :], np.concatenate((np.array([1]), prices)))
+        exp_losses = np.matmul(
+            q_forecast[1:, :], np.concatenate((np.array([1]), prices))
+        )
         exp_supply = supply
         exp_demand = np.sum(q_forecast, axis=0)
-        return exp_gain - exp_losses, exp_supply - exp_demand, exp_gain + exp_losses, exp_supply + exp_demand
+        return (
+            exp_gain - exp_losses,
+            exp_supply - exp_demand,
+            exp_gain + exp_losses,
+            exp_supply + exp_demand,
+        )

@@ -38,7 +38,7 @@ from household import Household
 from network import create_net
 
 warnings.simplefilter("ignore")
-coded_network_type = ["regular", "m-regular", "er"]
+CODED_NETWORK_TYPE = ["regular", "m-regular", "er"]
 
 # pylint: disable=too-many-arguments
 
@@ -77,7 +77,7 @@ class Economy:
         if average_connectivity is not None and average_connectivity < 0:
             raise ValueError("d must be a positive integer.")
 
-        if network_type is not None and network_type not in coded_network_type:
+        if network_type is not None and network_type not in CODED_NETWORK_TYPE:
             raise ValueError(
                 "netstring not supported. Please choose 'regular' for regular, 'm-regular'"
                 + " for multi-regular, 'er' for Erdös-Renyi."
@@ -297,45 +297,6 @@ class Economy:
                 Defaults to 0.1.
         """
 
-        if productivity_factors is not None and (productivity_factors < 0).any():
-            raise ValueError(errors_strings.PRODUCTIVITY_FACTORS)
-
-        if depreciation_stock is not None and (depreciation_stock < 0).any():
-            raise ValueError(errors_strings.DEPRECIATION_FACTORS)
-
-        if price_surplus_coupling is not None and price_surplus_coupling < 0:
-            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
-
-        if price_profit_coupling is not None and price_profit_coupling < 0:
-            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
-
-        if production_profit_coupling is not None and production_profit_coupling < 0:
-            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
-
-        if production_surplus_coupling is not None and production_surplus_coupling < 0:
-            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
-
-        if wage_labour_coupling is not None and wage_labour_coupling < 0:
-            raise ValueError(errors_strings.ADJUSTMENT_SPEEDS)
-
-        productivity_factors = (
-            productivity_factors if productivity_factors else np.ones(self.firms_number)
-        )
-        depreciation_stock = (
-            depreciation_stock if depreciation_stock else np.ones(self.firms_number)
-        )
-        price_surplus_coupling = (
-            price_surplus_coupling if price_surplus_coupling else 0.25
-        )
-        price_profit_coupling = price_profit_coupling if price_profit_coupling else 0.25
-        production_profit_coupling = (
-            production_profit_coupling if production_profit_coupling else 0.25
-        )
-        production_surplus_coupling = (
-            production_surplus_coupling if production_surplus_coupling else 0.25
-        )
-        wage_labour_coupling = wage_labour_coupling if wage_labour_coupling else 0.1
-
         self.firms_sector = Firms(
             productivity_factors,
             depreciation_stock,
@@ -391,12 +352,12 @@ class Economy:
         if productivity_factors is not None:
             if (productivity_factors < 0).any():
                 raise ValueError("Entries of productivity_factors must be positive.")
-            self.firms_sector.update_z(productivity_factors)
+            self.firms_sector.update_productivity_factors(productivity_factors)
         else:
             print(
                 "Provided productivity_factors object was None. Instanciated with default instead."
             )
-            self.firms_sector.update_z(np.ones(self.firms_number))
+            self.firms_sector.update_productivity_factors(np.ones(self.firms_number))
         self.set_quantities()
         self.compute_eq()
 
@@ -484,7 +445,9 @@ class Economy:
         if self.ces_parameter == 0:
             self.aggregate_matrix = self.adjacency_network
             self.augmented_aggregate_matrix = self.augmented_adjacency_matrix
-            self.network_matrix = np.diag(self.firms_sector.z) - self.aggregate_matrix
+            self.network_matrix = (
+                np.diag(self.firms_sector.productivity_factors) - self.aggregate_matrix
+            )
         elif self.ces_parameter == np.inf:
             self.aggregate_matrix = self.substitution_matrix
             self.augmented_aggregate_matrix = self.augmented_substitution_matrix
@@ -505,7 +468,12 @@ class Economy:
                 np.power(self.augmented_adjacency_matrix, self.auxiliary_ces_parameter),
             )
             self.network_matrix = (
-                np.diag(np.power(self.firms_sector.z, self.auxiliary_ces_parameter))
+                np.diag(
+                    np.power(
+                        self.firms_sector.productivity_factors,
+                        self.auxiliary_ces_parameter,
+                    )
+                )
                 - self.aggregate_matrix
             )
         self.zeros_augmented_network = self.augmented_adjacency_matrix != 0
@@ -524,18 +492,20 @@ class Economy:
         :return: side effect.
         """
         min_eig = self.get_eps_cal()
-        z_n = self.firms_sector.z * np.power(
+        z_n = self.firms_sector.productivity_factors * np.power(
             1
             + (eps - min_eig)
-            / np.power(self.firms_sector.z, self.auxiliary_ces_parameter),
+            / np.power(
+                self.firms_sector.productivity_factors, self.auxiliary_ces_parameter
+            ),
             self.ces_parameter + 1,
         )
-        sigma = self.firms_sector.sigma
-        alpha = self.firms_sector.alpha
-        alpha_p = self.firms_sector.alpha_p
-        beta = self.firms_sector.beta
-        beta_p = self.firms_sector.beta_p
-        omega = self.firms_sector.omega
+        sigma = self.firms_sector.depreciation_stock
+        alpha = self.firms_sector.price_surplus_coupling
+        alpha_p = self.firms_sector.price_profit_coupling
+        beta = self.firms_sector.production_profit_coupling
+        beta_p = self.firms_sector.production_surplus_coupling
+        omega = self.firms_sector.wage_labour_coupling
         self.init_firms(z_n, sigma, alpha, alpha_p, beta, beta_p, omega)
         self.set_quantities()
         self.compute_eq()
@@ -673,12 +643,12 @@ class Economy:
             log_p = lstsq(
                 np.eye(self.firms_number) / self.returns_to_scale
                 - self.substitution_matrix,
-                -np.log(self.firms_sector.z) / self.returns_to_scale
+                -np.log(self.firms_sector.productivity_factors) / self.returns_to_scale
                 + (1 - self.returns_to_scale) * np.log(v) / self.returns_to_scale
                 + h,
                 rcond=10e-7,
             )[0]
-            log_g = -np.log(self.firms_sector.z) - log_p + np.log(v)
+            log_g = -np.log(self.firms_sector.productivity_factors) - log_p + np.log(v)
             self.equilibrium_prices, self.equilibrium_production_levels = np.exp(
                 log_p
             ), np.exp(log_g)
@@ -697,7 +667,7 @@ class Economy:
                     )[0]
 
                     par = (
-                        self.firms_sector.z,
+                        self.firms_sector.productivity_factors,
                         np.array(self.augmented_aggregate_matrix[:, 0]),
                         self.network_matrix,
                         self.returns_to_scale - 1,
@@ -706,7 +676,9 @@ class Economy:
 
                     pert_peq = lstsq(
                         self.network_matrix,
-                        self.firms_sector.z * init_guess_peq * np.log(init_guess_geq),
+                        self.firms_sector.productivity_factors
+                        * init_guess_peq
+                        * np.log(init_guess_geq),
                         rcond=10e-7,
                     )[0]
 
@@ -717,7 +689,9 @@ class Economy:
                             np.power(init_guess_peq, 2),
                         )
                         * pert_peq
-                        + self.firms_sector.z * init_guess_geq * np.log(init_guess_geq),
+                        + self.firms_sector.productivity_factors
+                        * init_guess_geq
+                        * np.log(init_guess_geq),
                         rcond=10e-7,
                     )[0]
 
@@ -765,7 +739,10 @@ class Economy:
                     )[0]
 
                     par = (
-                        np.power(self.firms_sector.z, self.auxiliary_ces_parameter),
+                        np.power(
+                            self.firms_sector.productivity_factors,
+                            self.auxiliary_ces_parameter,
+                        ),
                         np.array(self.augmented_aggregate_matrix[:, 0]),
                         self.network_matrix,
                         self.ces_parameter,
@@ -788,7 +765,7 @@ class Economy:
                         np.divide(
                             w,
                             np.power(
-                                self.firms_sector.z,
+                                self.firms_sector.productivity_factors,
                                 self.ces_parameter * self.auxiliary_ces_parameter,
                             )
                             * np.power(u, self.ces_parameter),
@@ -834,7 +811,7 @@ class Economy:
                     self.equilibrium_production_levels = np.divide(
                         w,
                         np.power(
-                            self.firms_sector.z,
+                            self.firms_sector.productivity_factors,
                             self.ces_parameter * self.auxiliary_ces_parameter,
                         )
                         * np.power(u, self.ces_parameter),
@@ -894,12 +871,14 @@ class Economy:
             (
                 self.ces_parameter * np.ones(self.firms_number),
                 self.returns_to_scale * np.ones(self.firms_number),
-                self.firms_sector.z,
-                self.firms_sector.sigma,
-                self.firms_sector.alpha * np.ones(self.firms_number),
-                self.firms_sector.alpha_p * np.ones(self.firms_number),
-                self.firms_sector.beta * np.ones(self.firms_number),
-                self.firms_sector.beta_p * np.ones(self.firms_number),
+                self.firms_sector.productivity_factors,
+                self.firms_sector.depreciation_stock,
+                self.firms_sector.price_surplus_coupling * np.ones(self.firms_number),
+                self.firms_sector.price_profit_coupling * np.ones(self.firms_number),
+                self.firms_sector.production_profit_coupling
+                * np.ones(self.firms_number),
+                self.firms_sector.production_surplus_coupling
+                * np.ones(self.firms_number),
                 self.firms_sector.w * np.ones(self.firms_number),
                 self.equilibrium_prices,
                 self.equilibrium_production_levels,

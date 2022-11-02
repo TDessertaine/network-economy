@@ -182,7 +182,8 @@ class Dynamics(object):
         self.supply = np.concatenate(
             (
                 [self.labour[t]],
-                self.eco.firms_sector.z * self.prods[t] + np.diagonal(self.stocks[t]),
+                self.eco.firms_sector.productivity_factors * self.prods[t]
+                + np.diagonal(self.stocks[t]),
             )
         )
 
@@ -303,7 +304,7 @@ class Dynamics(object):
 
         self.stocks[t + 1] = np.matmul(
             self.stocks[t + 1],
-            np.diag(np.exp(-self.eco.firms_sector.sigma * self.step_s)),
+            np.diag(np.exp(-self.eco.firms_sector.depreciation_stock * self.step_s)),
         )
 
         # (3) Price rescaling
@@ -353,7 +354,11 @@ class Dynamics(object):
 
         # Planning period with provided initial target t1.
         self.supply = np.concatenate(
-            [[self.labour[1]], self.eco.firms_sector.z * self.g0 + np.diagonal(self.s0)]
+            [
+                [self.labour[1]],
+                self.eco.firms_sector.productivity_factors * self.g0
+                + np.diagonal(self.s0),
+            ]
         )
         self.targets[2] = self.t1
         self.q_opt = self.eco.firms_sector.compute_optimal_quantities(
