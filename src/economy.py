@@ -453,10 +453,10 @@ class Economy:
         # self.firms.z[bkrpt_idx] = 0
         self.a0,self.a = self.a_a[:,0],self.a_a[:,1:]
         self.set_quantities()
-        self.compute_eq()
+        self.compute_eq(srv_idx)
         return bkrpt_idx,srv_idx
 
-    def compute_eq(self):
+    def compute_eq(self,srv_idx = None):
         """
         Computes the competitive equilibrium of the economy. We use least-squares to compute solutions of linear
         systems Ax=b for memory and computational efficiency. The non-linear equations for non-constant return to scale
@@ -465,42 +465,47 @@ class Economy:
         can output erroneous results or errors.
         :return: side effect.
         """
+        if srv_idx is None : srv_idx,srv_idx_a = np.arange(0,self.n),np.arange(0,self.n+1)
+        else : srv_idx_a = np.concatenate([[0],srv_idx+1])
+        n_ = len(srv_idx)
+        self.p_eq,self.g_eq,self.cons_eq = np.zeros((100)),np.zeros((100)),np.zeros((100))
+        
         if self.q == np.inf:
             h = np.sum(
-                self.a_a * np.log(np.ma.masked_invalid(np.divide(self.j_a, self.a_a))), axis=1)
-            v = lstsq(np.eye(self.n) - self.a.T,
-                      self.kappa,
+                self.a_a[srv_idx,:][:,srv_idx_a] * np.log(np.ma.masked_invalid(np.divide(self.j_a[srv_idx,:][:,srv_idx_a], self.a_a[srv_idx,:][:,srv_idx_a]))), axis=1)
+            v = lstsq(np.eye(n_) - self.a[srv_idx,:][:,srv_idx].T,
+                      self.kappa[srv_idx],
                       rcond=10e-7)[0]
-            log_p = lstsq(np.eye(self.n) / self.b - self.a,
-                          - np.log(self.firms.z) / self.b +
+            log_p = lstsq(np.eye(n_) / self.b - self.a[srv_idx,:][:,srv_idx],
+                          - np.log(self.firms.z[srv_idx]) / self.b +
                           (1 - self.b) * np.log(v) / self.b + h,
                           rcond=10e-7)[0]
-            log_g = - np.log(self.firms.z) - log_p + np.log(v)
-            self.p_eq, self.g_eq = np.exp(log_p), np.exp(log_g)
+            log_g = - np.log(self.firms.z[srv_idx]) - log_p + np.log(v)
+            self.p_eq[srv_idx], self.g_eq[srv_idx] = np.exp(log_p), np.exp(log_g)
         else:
             if self.b != 1:
                 if self.q == 0:
-                    init_guess_peq = lstsq(self.m_cal,
-                                           self.v,
+                    init_guess_peq = lstsq(self.m_cal[srv_idx,:][:,srv_idx],
+                                           self.v[srv_idx],
                                            rcond=10e-7)[0]
-                    init_guess_geq = lstsq(self.m_cal.T,
+                    init_guess_geq = lstsq(self.m_cal[srv_idx,:][:,srv_idx].T,
                                            np.divide(
-                                               self.kappa, init_guess_peq),
+                                               self.kappa[srv_idx], init_guess_peq),
                                            rcond=10e-7)[0]
 
-                    par = (self.firms.z,
-                           self.v,
-                           self.m_cal,
+                    par = (self.firms.z[srv_idx],
+                           self.v[srv_idx],
+                           self.m_cal[srv_idx,:][:,srv_idx],
                            self.b - 1,
-                           self.kappa)
+                           self.kappa[srv_idx])
 
                     pert_peq = lstsq(
-                        self.m_cal, self.firms.z * init_guess_peq * np.log(init_guess_geq), rcond=10e-7)[0]
+                        self.m_cal[srv_idx,:][:,srv_idx], self.firms.z[srv_idx] * init_guess_peq * np.log(init_guess_geq), rcond=10e-7)[0]
 
-                    pert_geq = lstsq(np.transpose(self.m_cal),
-                                     - np.divide(self.kappa,
+                    pert_geq = lstsq(np.transpose(self.m_cal[srv_idx,:][:,srv_idx]),
+                                     - np.divide(self.kappa[srv_idx],
                                                  np.power(init_guess_peq, 2)) * pert_peq +
-                                     self.firms.z * init_guess_geq *
+                                     self.firms.z[srv_idx] * init_guess_geq *
                                      np.log(init_guess_geq),
                                      rcond=10e-7)[0]
 
@@ -508,30 +513,30 @@ class Economy:
                                  np.array(np.concatenate((init_guess_peq + (1 - self.b) * pert_peq,
                                                           np.power(init_guess_geq + (1 - self.b) * (
                                                               pert_geq - init_guess_geq * np.log(init_guess_geq)),
-                                     1 / self.b))).reshape(2 * self.n)))[0]
+                                     1 / self.b))).reshape(2 * n_)))[0]
 
                     # pylint: disable=unbalanced-tuple-unpacking
-                    self.p_eq, g = np.split(pg, 2)
-                    self.g_eq = np.power(g, self.b)
+                    self.p_eq[srv_idx], g = np.split(pg, 2)
+                    self.g_eq[srv_idx] = np.power(g, self.b)
 
                 else:
 
                     # The numerical solving is done for variables u = p_eq ^ zeta and
                     # w = z ^ (q * zeta) * u ^ q * g_eq ^ (zeta * (bq+1) / b)
 
-                    init_guess_u = lstsq(self.m_cal,
-                                         self.v,
+                    init_guess_u = lstsq(self.m_cal[srv_idx,:][:,srv_idx],
+                                         self.v[srv_idx],
                                          rcond=None)[0]
-                    init_guess_w = lstsq(self.m_cal.T,
-                                         np.divide(self.kappa, init_guess_u),
+                    init_guess_w = lstsq(self.m_cal[srv_idx,:][:,srv_idx].T,
+                                         np.divide(self.kappa[srv_idx], init_guess_u),
                                          rcond=None)[0]
 
-                    par = (np.power(self.firms.z, self.zeta),
-                           self.v,
-                           self.m_cal,
+                    par = (np.power(self.firms.z[srv_idx], self.zeta),
+                           self.v[srv_idx],
+                           self.m_cal[srv_idx,:][:,srv_idx],
                            self.q,
                            (self.b - 1) / (self.b * self.q + 1),
-                           self.kappa
+                           self.kappa[srv_idx]
                            )
 
                     uw = leastsq(lambda x: self.non_linear_eq_qnonzero(x, *par),
@@ -540,37 +545,37 @@ class Economy:
 
                     # pylint: disable=unbalanced-tuple-unpacking
                     u, w = np.split(uw, 2)
-                    self.p_eq = np.power(u, 1. / self.zeta)
-                    self.g_eq = np.power(np.divide(w, np.power(self.firms.z, self.q * self.zeta) * np.power(u, self.q)),
+                    self.p_eq[srv_idx] = np.power(u, 1. / self.zeta)
+                    self.g_eq[srv_idx] = np.power(np.divide(w, np.power(self.firms.z[srv_idx], self.q * self.zeta) * np.power(u, self.q)),
                                          self.b / (self.zeta * (self.b * self.q + 1)))
             else:
                 if self.q == 0:
-                    self.p_eq = lstsq(self.m_cal,
-                                      self.v,
+                    self.p_eq[srv_idx] = lstsq(self.m_cal[srv_idx,:][:,srv_idx],
+                                      self.v[srv_idx],
                                       rcond=10e-7)[0]
-                    self.g_eq = lstsq(self.m_cal.T,
-                                      np.divide(self.kappa, self.p_eq),
+                    self.g_eq[srv_idx] = lstsq(self.m_cal[srv_idx,:][:,srv_idx].T,
+                                      np.divide(self.kappa[srv_idx], self.p_eq[srv_idx]),
                                       rcond=10e-7)[0]
                 else:
 
                     # The numerical solving is done for variables u = p_eq ^ zeta and
                     # w = z ^ (q * zeta) * u ^ q * g_eq
 
-                    u = lstsq(self.m_cal,
-                              self.v,
+                    u = lstsq(self.m_cal[srv_idx,:][:,srv_idx],
+                              self.v[srv_idx],
                               rcond=None)[0]
-                    self.p_eq = np.power(u, 1. / self.zeta)
-                    w = lstsq(self.m_cal.T,
-                              np.divide(self.kappa, u),
+                    self.p_eq[srv_idx] = np.power(u, 1. / self.zeta)
+                    w = lstsq(self.m_cal[srv_idx,:][:,srv_idx].T,
+                              np.divide(self.kappa[srv_idx], u),
                               rcond=None)[0]
-                    self.g_eq = np.divide(w, np.power(
-                        self.firms.z, self.q * self.zeta) * np.power(u, self.q))
+                    self.g_eq[srv_idx] = np.divide(w, np.power(
+                        self.firms.z[srv_idx], self.q * self.zeta) * np.power(u, self.q))
 
         self.labour_eq = np.power(
             self.mu_eq * self.house.f, 1. / self.house.phi) / self.house.v_phi
-        self.cons_eq = self.kappa / self.p_eq
-        self.b_eq = np.sum(self.house.theta) / self.mu_eq
-        self.utility_eq = np.dot(self.house.theta, np.log(self.cons_eq)) - self.house.gamma * np.power(
+        self.cons_eq[srv_idx] = self.kappa[srv_idx] / self.p_eq[srv_idx]
+        self.b_eq = np.sum(self.house.theta[srv_idx]) / self.mu_eq
+        self.utility_eq = np.dot(self.house.theta[srv_idx], np.log(self.cons_eq[srv_idx])) - self.house.gamma * np.power(
             self.labour_eq / self.house.l_0,
             self.house.phi + 1) / (
                 self.house.phi + 1)
