@@ -78,7 +78,7 @@ class Household(object):
                                                                                 1. + self.phi) / (
                        1. + self.phi)
 
-    def compute_demand_cons_labour_supply(self, savings, prices, labour_supply, labour_demand, step_s):
+    def compute_demand_cons_labour_supply(self, savings, prices, labour_supply, labour_demand, step_s,srv_idx = None):
         """
         Optimization sequence carried by the household.
         :param savings: wage-rescaled savings for the next period,
@@ -90,7 +90,9 @@ class Household(object):
         """
 
         # Update preferences taking confidence effects into account
-        theta = self.theta * np.exp(- self.omega_p * step_s * (labour_supply - labour_demand) /
+        if srv_idx is None : 
+            srv_idx = np.arange(len(prices))
+        theta = self.theta[srv_idx] * np.exp(- self.omega_p * step_s * (labour_supply - labour_demand) /
                                     (labour_supply + labour_demand))
 
         if self.phi == 1:
@@ -103,7 +105,7 @@ class Household(object):
             mu = fsolve(self.fixed_point_mu,
                         np.power(np.sum(theta) * self.v_phi, self.phi / (1 + self.phi)) / 2.,
                         args=(np.sum(theta), self.v_phi, self.phi, self.f, savings))
-
+                        
         return theta / (mu * prices), np.power(mu * self.f, 1. / self.phi) / self.v_phi
 
     @staticmethod

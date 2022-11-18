@@ -103,8 +103,8 @@ class Firms:
         :return: Production targets for the next period.
         """
         est_profits, est_balance, est_cashflow, est_tradeflow = self.compute_forecasts(prices, q_forecast, supply)
-        return prods * np.exp(2 * step_s * (self.beta * est_profits / est_cashflow
-                              - self.beta_p * est_balance[1:] / est_tradeflow[1:]))
+        return np.round(prods * np.exp(2 * step_s * (self.beta * est_profits / est_cashflow
+                              - self.beta_p * est_balance[1:] / est_tradeflow[1:])),10)
 
     @staticmethod
     def compute_profits_balance(prices, q_exchange, supply, demand):
@@ -122,32 +122,35 @@ class Firms:
         return gain - losses, supply - demand, gain + losses, supply + demand
 
     @staticmethod
-    def compute_optimal_quantities(targets, prices, e):
+    def compute_optimal_quantities(targets, prices, e,srv_idx=None,srv_idx_a=None):
         """
         Computes minimizing-costs quantities given different production functions and production target.
         :param e: economy class,
         :param targets: production targets for the next period,
         :param prices: current wages-rescaled prices,
+        :param srv_idx
         :return: Matrix of optimal goods/labor quantities.
         """
+        if srv_idx is None : 
+            srv_idx,srv_idx_a = np.arange(0,e.n),np.arange(0,e.n+1)
         if e.q == 0:
             demanded_products_labor = np.matmul(np.diag(np.power(targets, 1. / e.b)),
-                                                e.lamb_a)
-            #print(demanded_products_labor)
+                                                e.lamb_a[srv_idx,:][:,srv_idx_a])
         elif e.q == np.inf:
             prices_net_aux = np.array([
-                np.prod(np.power(e.j_a[i, :] * np.concatenate((np.array([1]), prices)) /
-                                 e.a_a[i, :], e.a_a[i, :])[e.zeros_j_a[i, :]])
+                np.prod(np.power(e.j_a[srv_idx,:][:,srv_idx_a][i, :] * np.concatenate((np.array([1]), prices)) /
+                                 e.a_a[srv_idx,:][:,srv_idx_a][i, :],
+                                 e.a_a[srv_idx,:][:,srv_idx_a][i, :])[e.zeros_j_a[srv_idx,:][:,srv_idx_a][i, :]])
                 for i in range(e.n)
             ])
-            demanded_products_labor = np.multiply(e.a_a,
+            demanded_products_labor = np.multiply(e.a_a[srv_idx,:][:,srv_idx_a],
                                                   np.outer(np.multiply(prices_net_aux,
                                                                        np.power(targets, 1. / e.b)),
                                                            np.concatenate((np.array([1]), 1. / prices))
                                                            ))
         else:
-            prices_net = np.matmul(e.lamb_a, np.power(np.concatenate(([1], prices)), e.zeta))
-            demanded_products_labor = np.multiply(e.lamb_a,
+            prices_net = np.matmul(e.lamb_a[srv_idx,:][:,srv_idx_a], np.power(np.concatenate(([1], prices)), e.zeta))
+            demanded_products_labor = np.multiply(e.lamb_a[srv_idx,:][:,srv_idx_a],
                                                   np.outer(np.multiply(np.power(prices_net, e.q),
                                                                        np.power(targets, 1. / e.b)),
                                                            np.power(np.concatenate((np.array([1]), prices)),

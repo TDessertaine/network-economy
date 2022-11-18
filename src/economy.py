@@ -44,7 +44,7 @@ class Economy:
 
     """
 
-    def __init__(self, n: int = None, d: int = None, netstring: str = None, directed: bool = None, j0: np.array = None, a0: np.array = None, q: float = None, b: float = None) -> None:
+    def __init__(self, n: int = None, d: int = None, netstring: str = None, directed: bool = None, j0: np.array = None, a0: np.array = None, q: float = None, b: float = None,**kwargs) -> None:
         """_summary_
 
         Args:
@@ -71,11 +71,11 @@ class Economy:
             raise ValueError(
                 "netstring not supported. Please choose 'regular' for regular, 'm-regular' for multi-regular, 'er' for Erdös-Renyi.")
 
-        if j0.any() < 0:
-            raise ValueError("Entries of j0 must be greater or equal to 0.")
+        # if j0.any() < 0:
+        #     raise ValueError("Entries of j0 must be greater or equal to 0.")
 
-        if a0.any() < 0 or a0.any() > 1:
-            raise ValueError("Entries of a0 must be between 0 and 1.")
+        # if a0.any() < 0 or a0.any() > 1:
+        #     raise ValueError("Entries of a0 must be between 0 and 1.")
 
         if not q >= 0:
             raise ValueError("q must be a positive real number.")
@@ -90,13 +90,19 @@ class Economy:
         directed = directed if directed else True
 
         self.j = create_net(netstring, directed, n, d)  # Network creation
-        self.j0 = j0 if j0 else np.ones(self.n)
-        self.a0 = a0 if a0 else 0.5 * np.ones(self.n)
+        self.j_save = self.j.copy()
+        # self.j0 = j0 if j0 else np.ones(self.n)
+        # self.a0 = a0 if a0 else 0.5 * np.ones(self.n)
+        self.j0 = j0
+        self.j0_save = j0.copy()
+        self.a0 = a0
+        self.a0_save = a0.copy()
 
         a = np.multiply(np.random.uniform(0, 1, (n, n)), self.j)
 
         self.a = np.array([(1 - a0[i]) * a[i] / np.sum(a[i])
                           for i in range(n)])
+        self.a_save = self.a.copy()
 
         self.q = q if q else 0
         self.zeta = 1 / (q + 1)
@@ -125,6 +131,36 @@ class Economy:
         self.b_eq = None
         self.utility_eq = None
 
+    def clear_all(self):
+        self.j = self.j_save.copy()
+        self.a0 = self.a0_save.copy()
+        self.j0 = self.j0_save.copy()
+        self.a = self.a_save.copy()
+
+        # Auxiliary network variables
+        self.lamb = None
+        self.a_a = None
+        self.j_a = None
+        self.lamb_a = None
+        self.m_cal = None
+        self.v = None
+        self.kappa = None
+        self.zeros_j_a = None
+
+        # Firms and household sub-classes
+        self.firms = None
+        self.house = None
+
+        # Equilibrium quantities
+        self.p_eq = None
+        self.g_eq = None
+        self.mu_eq = None
+        self.labour_eq = None
+        self.cons_eq = None
+        self.b_eq = None
+        self.utility_eq = None
+        
+
     def init_house(self, l_0, theta, gamma, phi, omega_p=None, f=None, r=None):
         """
         Initialize a household object as instance of economy class. Refer to household class.
@@ -137,7 +173,7 @@ class Economy:
         :param r: savings growth rate.
         :return: Initializes household class with given parameters.
         """
-        self.house = Household(l_0, theta, gamma, phi, omega_p, f, r)
+        self.house = Household(l_0, theta.copy(), gamma, phi, omega_p, f, r) # The .copy() for theta is to ensure that when we modify it and then clear all it does not change the initial input.
 
     def init_firms(self, z, sigma, alpha, alpha_p, beta, beta_p, omega):
         """
@@ -349,26 +385,76 @@ class Economy:
         self.set_quantities()
         self.compute_eq()
 
-    def production_function(self, q_available):
+    def production_function(self, q_available,srv_idx= None, srv_idx_a = None):
         """
         CES production function.
         :param q_available: matrix of available labour and goods for production,
         :return: production levels of the firms.
         """
+        if srv_idx is None : 
+            srv_idx,srv_idx_a = np.arange(0,self.n),np.arange(0,self.n+1)
         if self.q == 0:
-            prod = np.power(np.nanmin(np.divide(q_available, self.j_a),
+            prod = np.power(np.nanmin(np.divide(q_available, self.j_a[srv_idx,:][:,srv_idx_a]),
                                       axis=1), self.b)
             # print(prod)
             return prod
         elif self.q == np.inf:
-            return np.power(np.nanprod(np.power(np.divide(q_available, self.j_a),
-                                                self.a_a),
+            return np.power(np.nanprod(np.power(np.divide(q_available, self.j_a[srv_idx,:][:,srv_idx_a]),
+                                                self.a_a[srv_idx,:][:,srv_idx_a]),
                                        axis=1),
                             self.b)
         else:
-            return np.power(np.nansum(self.a_a * np.power(self.j_a, 1. / self.q)
+            return np.power(np.nansum(self.a_a[srv_idx,:][:,srv_idx_a] * np.power(self.j_a[srv_idx,:][:,srv_idx_a], 1. / self.q)
                                       / np.power(q_available, 1. / self.q), axis=1),
                             - self.b * self.q)
+
+    def update_j(self,bkrpt_idx,srv_idx):
+        """Author : Swann Chelly
+        Update_j when profits are lower than a threshold -min_loss. Destroy all links of a firm when it goes bankrupt. 
+        Args:
+            min_loss (float): Threshold under which firms go bankrupt
+            gains (np.array): gains table
+            losses (np.array): gains table
+            interest_rates (np.array, optional): Compute cumulated profits according to interest rates. Defaults to None.
+        """
+        # plt.matshow(self.j)
+        self.j[:,bkrpt_idx] = 0
+        self.j[bkrpt_idx,:] = 0
+        self.j0[bkrpt_idx]  = 0
+
+        
+        bkrpt_idx_,srv_idx_ = np.where(self.j.sum(axis = 1)==0)[0],np.where(self.j.sum(axis = 1)>0)[0]
+
+        while set(srv_idx)-set(srv_idx_):
+            bkrpt_idx,srv_idx = bkrpt_idx_,srv_idx_
+            self.j[:,bkrpt_idx] = 0
+            self.j[bkrpt_idx,:] = 0
+            self.j0[bkrpt_idx]  = 0
+            bkrpt_idx_,srv_idx_ = np.where(self.j.sum(axis = 1)==0)[0],np.where(self.j.sum(axis = 1)>0)[0]
+        bkrpt_idx_,srv_idx_ = bkrpt_idx_,srv_idx_
+
+        redist,weight = np.ones(self.n).reshape(-1,1),np.ones(self.n).reshape(-1,1)
+        redist[srv_idx] = self.a_a[srv_idx,:][:,bkrpt_idx+1].sum(axis = 1).reshape(-1,1)
+        weight[srv_idx] = self.a_a[srv_idx,:][:,srv_idx+1].sum(axis = 1).reshape(-1,1)
+        # redist[weight == 0] = 0
+        weight[weight == 0] = 1 # To avoid collapse
+
+        self.a_a[:,bkrpt_idx+1] = 0
+        self.a_a[bkrpt_idx,:]   = 0
+        self.a_a[:,1:]  = self.a_a[:,1:]*(1+redist/weight)
+        
+        # Sanity check, all sum of rows of self.a_a must be either 0 or 1.
+        temp_ = set(np.round(self.a_a.sum(axis = 1),6))
+        assert temp_ == set([0,1]), f"Sum of a_a contains :{temp_-set([0,1])} {set(srv_idx)}" 
+        assert np.isnan(self.a_a).sum() == 0 , "NaN in a_a"
+
+        self.house.theta[bkrpt_idx] = 0
+        self.house.theta[srv_idx] = self.house.theta[srv_idx]/self.house.theta[srv_idx].sum()
+        # self.firms.z[bkrpt_idx] = 0
+        self.a0,self.a = self.a_a[:,0],self.a_a[:,1:]
+        self.set_quantities()
+        self.compute_eq()
+        return bkrpt_idx,srv_idx
 
     def compute_eq(self):
         """
