@@ -61,8 +61,8 @@ class Dynamics(object):
         self.prods = np.zeros((int((t_max + 1) / self.step_s), self.n))
         self.targets = np.zeros((int((t_max + 1) / self.step_s), self.n))
         self.stocks = np.zeros((int((t_max + 1) / self.step_s), self.n, self.n))
-        self.gains = np.zeros((int((t_max + 1) / self.step_s),self.n))
-        self.losses = np.zeros((int((t_max + 1) / self.step_s),self.n))
+        self.gains = np.zeros(self.n)
+        self.losses = np.zeros(self.n)
         self.supply = np.zeros(self.n + 1)
         self.demand = np.zeros(self.n + 1)
         self.tradereal = np.zeros(self.n + 1)
@@ -75,6 +75,8 @@ class Dynamics(object):
         self.savings = 0
         self.labour = np.zeros(int((t_max + 1) / self.step_s))
         self.contagion_matrix = np.ones((int((t_max + 1) / self.step_s),self.n))
+        
+        self.cum_profits = np.zeros((2,self.n))
 
         # Bankrupt idx
         self.srv_idx = np.arange(self.n)
@@ -99,6 +101,9 @@ class Dynamics(object):
         self.run_with_current_ic = False
         self.nu = nu if nu else 1
         self.lda = lda if lda else 1
+        self.time_table_1 = []
+
+
     
     def init_mask(self):
         # Mask
@@ -121,7 +126,7 @@ class Dynamics(object):
         self.production_mask_1 = np.ones((self.n,self.n+1),dtype = bool)
 
         # self.production_mask_2 = np.array([[True if j in self.srv_idx and i in self.srv_idx else False for j in range(0,self.n)] for i in range(0,self.n)]) 
-        self.production_mask_2 = np.ones((self.n,self.n))
+        self.production_mask_2 = np.ones((self.n,self.n),dtype = bool)
 
         #self.diag_mask = np.array([[True if (i,j) in list(zip(self.srv_idx,self.srv_idx)) else False for j in range(self.n)] for i in range(self.n)])
         self.diag_mask = np.identity(self.n,dtype = bool)
@@ -170,8 +175,8 @@ class Dynamics(object):
         self.prods = np.zeros((int((self.t_max + 1) / self.step_s), self.n))
         self.targets = np.zeros((int((self.t_max + 1) / self.step_s), self.n))
         self.stocks = np.zeros((int((self.t_max + 1) / self.step_s), self.n, self.n))
-        self.gains = np.zeros((int((self.t_max + 1) / self.step_s),self.n))
-        self.losses = np.zeros((int((self.t_max + 1) / self.step_s),self.n))
+        self.gains = np.zeros(self.n)
+        self.losses = np.zeros(self.n)
         self.supply = np.zeros(self.n + 1)
         self.demand = np.zeros(self.n + 1)
         self.tradereal = np.zeros(self.n + 1)
@@ -189,6 +194,8 @@ class Dynamics(object):
         self.srv_idx_a = np.arange(self.n+1)
         self.bkrpt_idx = np.array([])
         self.n_bkrpt = np.zeros(int((self.t_max) / self.step_s))
+        self.time_table_1 = []
+        self.cum_profits = np.zeros((2,100))
 
 
         self.init_mask()
@@ -260,18 +267,20 @@ class Dynamics(object):
         """
 
         # (1) - (2) Forecasts and production targets
+        pr_ = self.prods[t,self.srv_idx]
+        p_ = self.prices[t,self.srv_idx]
         self.supply[self.srv_idx_a] = np.concatenate(
-            ([self.labour[t]], self.eco.firms.z[self.srv_idx] * self.prods[t,self.srv_idx] + np.diagonal(self.stocks[t,self.srv_idx,:][:,self.srv_idx])))
+            ([self.labour[t]], self.eco.firms.z[self.srv_idx] * pr_ + np.diagonal(self.stocks[t,self.srv_idx,:][:,self.srv_idx])))
 
-        self.targets[t + 1,self.srv_idx] = self.eco.firms.compute_targets(self.prices[t,self.srv_idx],
+        self.targets[t + 1,self.srv_idx] = self.eco.firms.compute_targets(p_,
                                                              self.lda * self.q_demand[t - 1][self.srv_idx_a,:][:,self.srv_idx_a] +
                                                              (1 - self.lda) * self.q_exchange[t - 1][self.srv_idx_a,:][:,self.srv_idx_a],
                                                              self.supply[self.srv_idx_a],
-                                                             self.prods[t,self.srv_idx],
+                                                             pr_,
                                                              self.step_s
                                                              )
         np.place(self.q_opt,self.planning_mask_1,self.eco.firms.compute_optimal_quantities(self.targets[t + 1,self.srv_idx],
-                                                               self.prices[t,self.srv_idx],
+                                                               p_,
                                                                self.eco,
                                                                self.srv_idx,
                                                                self.srv_idx_a
@@ -280,8 +289,9 @@ class Dynamics(object):
         # (3) Posting demands
         
         self.q_demand[t, self.srv_idx+1, 0] = self.q_opt[self.srv_idx, 0]
+        s_ = self.stocks[t][self.srv_idx,:][:,self.srv_idx]
         np.place(self.q_demand[t],self.planning_mask_2,np.maximum(
-            self.q_opt[self.srv_idx,:][:,self.srv_idx+1] - (self.stocks[t][self.srv_idx,:][:,self.srv_idx] - np.diagonal(self.stocks[t][self.srv_idx,:][:,self.srv_idx]) * np.eye(self.n_)),
+            self.q_opt[self.srv_idx,:][:,self.srv_idx+1] - (s_ - np.diagonal(s_) * np.eye(self.n_)),
             0))
 
     def exchanges_and_updates(self, t):
@@ -295,12 +305,13 @@ class Dynamics(object):
         """
 
         # (1) Hiring and Wage payment
-        self.q_exchange[t, self.srv_idx+1, 0] = self.q_demand[t, self.srv_idx+1, 0] * np.minimum(1, self.labour[t] / np.sum(
-            self.q_demand[t, self.srv_idx+1, 0]))
+        q_ = self.q_demand[t, self.srv_idx+1, 0]
+        self.q_exchange[t, self.srv_idx+1, 0] = q_ * np.minimum(1, self.labour[t] / np.sum(
+            q_))
 
         self.budget = self.savings + np.sum(self.q_exchange[t, self.srv_idx+1, 0])
 
-        self.q_demand[t, 0,self.srv_idx+1] = self.q_demand[t, 0,self.srv_idx+1] * (self.nu + (1 - self.nu) *
+        self.q_demand[t, 0,self.srv_idx+1] *=  (self.nu + (1 - self.nu) *
                                                              np.minimum(1, self.budget /
                                                                         (self.savings + self.labour[t])))
 
@@ -311,35 +322,40 @@ class Dynamics(object):
                                               np.diag(np.minimum(self.supply[self.srv_idx+1] / self.demand[self.srv_idx+1], 1))
                                               ))
     
-
-        self.q_exchange[t, 0, self.srv_idx+1] = self.q_exchange[t, 0, self.srv_idx+1] * np.minimum(1, self.eco.house.f * self.budget / (
-            np.dot(self.q_exchange[t, 0, self.srv_idx+1], self.prices[t,self.srv_idx])))
+        q_ = self.q_exchange[t, 0, self.srv_idx+1]
+        p_ = self.prices[t,self.srv_idx]
+        self.q_exchange[t, 0, self.srv_idx+1] = q_ * np.minimum(1, self.eco.house.f * self.budget / (
+            np.dot(q_, p_)))
     
-        self.savings = self.budget - np.dot(self.prices[t,self.srv_idx], self.q_exchange[t,0,self.srv_idx+1])
+        self.savings = self.budget - np.dot(p_, self.q_exchange[t,0,self.srv_idx+1])
         
+        q_ = self.stocks[t][self.srv_idx,:][:,self.srv_idx]
         self.q_prod[self.srv_idx, 0] = self.q_exchange[t][self.srv_idx+1,0]
         # mask_2D = np.array([[True if j in self.srv_idx+1 and i in self.srv_idx else False for j in range(0,self.n+1)] for i in range(0,self.n)]) 
         np.place(self.q_prod,self.eau_mask_2,self.q_exchange[t][self.srv_idx+1,:][:,self.srv_idx+1] + np.minimum(
-            self.stocks[t][self.srv_idx,:][:,self.srv_idx] - np.diag(self.stocks[t][self.srv_idx,:][:,self.srv_idx]) * np.eye(self.n_), self.q_opt[self.srv_idx,:][:,self.srv_idx+1]))
+            q_ - np.diag(q_) * np.eye(self.n_), self.q_opt[self.srv_idx,:][:,self.srv_idx+1]))
 
         self.tradereal = np.sum(self.q_exchange[t,self.srv_idx_a], axis=0)
         
-        self.gains[t,self.srv_idx] = self.prices[t,self.srv_idx] * self.tradereal[self.srv_idx+1]
-        self.losses[t,self.srv_idx] = np.round(np.matmul(self.q_exchange[t][self.srv_idx+1,:][:,self.srv_idx_a], np.concatenate(([1], self.prices[t,self.srv_idx]))),10)
+        self.gains[self.srv_idx] = p_ * self.tradereal[self.srv_idx+1]
+        self.losses[self.srv_idx] = np.round(np.matmul(self.q_exchange[t][self.srv_idx+1,:][:,self.srv_idx_a], np.concatenate(([1], self.prices[t,self.srv_idx]))),10)
 
     
         # (3) Prices and Wage updates
         self.wages[t + 1] = self.eco.firms.update_wages(self.supply[0] - self.demand[0],
                                                         self.supply[0] + self.demand[0],
                                                         self.step_s)
-
+        g_,l_ = self.gains[self.srv_idx],self.losses[self.srv_idx]
+        s_,d_ = self.supply[self.srv_idx_a],self.demand[self.srv_idx_a]
         self.prices[t + 1,self.srv_idx] = self.eco.firms.update_prices(self.prices[t,self.srv_idx],
-                                                      self.gains[t,self.srv_idx] - self.losses[t,self.srv_idx],
-                                                      self.supply[self.srv_idx_a] - self.demand[self.srv_idx_a],
-                                                      self.gains[t,self.srv_idx] + self.losses[t,self.srv_idx],
-                                                      self.supply[self.srv_idx_a] + self.demand[self.srv_idx_a],
+                                                      g_-l_,
+                                                      s_-d_,
+                                                      g_+l_,
+                                                      s_+d_,
                                                       self.step_s
                                                       )
+        self.cum_profits[0] = self.cum_profits[1]
+        self.cum_profits[1,self.srv_idx] += g_-l_
 
     def production(self, t):
         """
@@ -351,11 +367,12 @@ class Dynamics(object):
         """
 
         # (1) Production starts
-        self.prods[t + 1,self.srv_idx] = self.eco.production_function(self.q_prod[self.srv_idx,:][:,self.srv_idx_a],self.srv_idx,self.srv_idx_a)
-        
+        q_ = self.q_prod[self.srv_idx,:][:,self.srv_idx_a]
+        self.prods[t + 1,self.srv_idx] = self.eco.production_function(q_,self.srv_idx,self.srv_idx_a)
+        j_ = self.eco.j_a[self.srv_idx,:][:,self.srv_idx_a]
         # mask_2D = np.array([[True if j in self.srv_idx_a and i in self.srv_idx else False for j in range(0,self.n+1)] for i in range(0,self.n)]) 
-        np.place(self.q_used,self.production_mask_1,(self.eco.q == 0) * np.matmul(np.diag(np.nanmin(np.divide(self.q_prod[self.srv_idx,:][:,self.srv_idx_a], self.eco.j_a[self.srv_idx,:][:,self.srv_idx_a]), axis=1)),
-                                                    self.eco.j_a[self.srv_idx,:][:,self.srv_idx_a]) + (self.eco.q != 0) * self.q_prod[self.srv_idx,:][:,self.srv_idx_a])
+        np.place(self.q_used,self.production_mask_1,(self.eco.q == 0) * np.matmul(np.diag(np.nanmin(np.divide(q_, j_), axis=1)),
+                                                    j_) + (self.eco.q != 0) * q_)
         # (2) Inventory update
         # mask_2D = np.array([[True if j in self.srv_idx and i in self.srv_idx else False for j in range(0,self.n)] for i in range(0,self.n)]) 
 
@@ -364,8 +381,8 @@ class Dynamics(object):
         np.place(self.stocks[t + 1],self.production_mask_2,np.matmul(self.stocks[t + 1][self.srv_idx,:][:,self.srv_idx], np.diag(np.exp(- self.eco.firms.sigma[self.srv_idx] * self.step_s))))
 
     #     # (3) Price rescaling
-        self.prices[t+1,self.srv_idx]=self.prices[t+1,self.srv_idx]/ self.wages[t + 1]
-        self.budget = self.budget / self.wages[t + 1]
+        self.prices[t+1,self.srv_idx]/= self.wages[t + 1]
+        self.budget /= self.wages[t + 1]
         self.savings = (1 + self.eco.house.r) * np.maximum(self.savings, 0) / self.wages[t + 1]
     #     # Clipping to avoid negative almost zero values
 
@@ -387,17 +404,24 @@ class Dynamics(object):
             t (_type_): _description_
         """
          # Update temporary information.
-        cum_profits = (self.gains-self.losses).cumsum(axis = 0)
-        bkrpt_idx = np.array(np.where(cum_profits[t]<-self.min_loss))[0]
-        new_idx   = set(bkrpt_idx)-set(np.array(np.where(cum_profits[t-1]<-self.min_loss))[0])
+        # cum_profits = (self.gains-self.losses)[:t].cumsum(axis = 0)
+        bkrpt_idx = np.array(np.where(self.cum_profits[1]<-self.min_loss))[0]
+        new_idx   = set(bkrpt_idx)-set(np.array(np.where(self.cum_profits[0]<-self.min_loss))[0])
+        
         if new_idx :
             self.bkrpt_idx = np.unique(np.concatenate([self.bkrpt_idx,bkrpt_idx])).astype(int) #Update index of bunkrapted firms with firms previously died (bkrpt + cascade) and firms that bkrpt at time t
             self.srv_idx   = np.array(list(set(self.srv_idx)-set(self.bkrpt_idx)))
+            
+            t1 = time()
             self.bkrpt_idx,self.srv_idx = self.eco.update_j(self.bkrpt_idx,self.srv_idx) # Update economy information (link, preferencies...)
+            
+            self.time_table_1.append(time()-t1)
             self.n_ = len(self.srv_idx)
             self.contagion_matrix[t,self.bkrpt_idx] = 0
             self.srv_idx_a = np.concatenate([[0],self.srv_idx+1])
+            
             self.update_mask()
+            
         self.n_bkrpt[t] = len(self.bkrpt_idx)
         return self.n_ == 0
 
