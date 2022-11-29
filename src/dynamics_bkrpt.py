@@ -195,7 +195,7 @@ class Dynamics(object):
         self.bkrpt_idx = np.array([])
         self.n_bkrpt = np.zeros(int((self.t_max) / self.step_s))
         self.time_table_1 = []
-        self.cum_profits = np.zeros((2,100))
+        self.cum_profits = np.zeros((2,self.n))
 
 
         self.init_mask()

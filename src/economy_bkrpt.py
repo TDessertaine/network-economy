@@ -29,6 +29,7 @@ import pandas as pd
 from numpy.linalg import lstsq
 from scipy.optimize import leastsq
 from time import time 
+import random
 
 from firms import Firms
 from household import Household
@@ -45,7 +46,7 @@ class Economy:
 
     """
 
-    def __init__(self, n: int = None, d: int = None, netstring: str = None, directed: bool = None, j0: np.array = None, a0: np.array = None, q: float = None, b: float = None,**kwargs) -> None:
+    def __init__(self, n: int = None, d: int = None, netstring: str = None, directed: bool = None, j0: np.array = None, a0: np.array = None, q: float = None, b: float = None,nested_CES = [False,None],**kwargs) -> None:
         """_summary_
 
         Args:
@@ -110,7 +111,13 @@ class Economy:
         self.q = q if q else 0
         self.zeta = 1 / (q + 1)
         self.b = b if b else 1
-
+        if nested_CES[0] : # If we are in a nested CES economy 
+            self.leontief_deg =  nested_CES[1] # Degré moyen CES de l'économie.
+            self.leontief_dict = [random.sample(list(np.where(self.j[i,:] == 1)[0]),self.leontief_deg) for i in range(self.n)]
+            self.leontief_net = np.zeros_like(self.j)
+            for i in range(self.n): self.leontief_net[i,self.leontief_dict[i]] = 1 # We create a new network matrix with only the leontief links
+        elif q == 0 : 
+            self.leontief_net = self.j.copy()
         # Auxiliary network variables
         self.lamb = None
         self.a_a = None
@@ -422,7 +429,7 @@ class Economy:
     def clean_network(self,bkrpt_idx, srv_idx):
         alone_firms = self.get_alone_firms_firms()
         if self.q == 0.:
-            firms_no_production = np.where(self.init_n_links  - self.j.sum(axis = 1) != 0)[0]
+            firms_no_production = np.where(self.leontief_net.sum(axis = 1)  - (self.j*self.leontief_net).sum(axis = 1) != 0)[0]
             alone_firms = np.unique(np.concatenate([alone_firms,firms_no_production]))
         bkrpt_idx_ = np.unique(np.concatenate([alone_firms,bkrpt_idx]))
         while set(bkrpt_idx_) - set(bkrpt_idx):
@@ -432,7 +439,7 @@ class Economy:
             self.j0[bkrpt_idx]  = 0
             alone_firms = self.get_alone_firms_firms()
             if self.q == 0.:
-                firms_no_production = np.where(self.init_n_links  - self.j.sum(axis = 1) != 0)[0]
+                firms_no_production = np.where(self.leontief_net.sum(axis = 1)  - (self.j*self.leontief_net).sum(axis = 1) != 0)[0]
                 alone_firms = np.unique(np.concatenate([alone_firms,firms_no_production]))
             bkrpt_idx_ = np.unique(np.concatenate([alone_firms,bkrpt_idx]))
         bkrpt_idx = bkrpt_idx_
@@ -499,7 +506,7 @@ class Economy:
         if srv_idx is None : srv_idx,srv_idx_a = np.arange(0,self.n),np.arange(0,self.n+1)
         else : srv_idx_a = np.concatenate([[0],srv_idx+1])
         n_ = len(srv_idx)
-        self.p_eq,self.g_eq,self.cons_eq = np.zeros((100)),np.zeros((100)),np.zeros((100))
+        self.p_eq,self.g_eq,self.cons_eq = np.zeros((self.n)),np.zeros((self.n)),np.zeros((self.n))
         
         if self.q == np.inf:
             h = np.sum(
